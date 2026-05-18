@@ -1,5 +1,5 @@
 /* ============================================================
-   Kartlar — Bilgi Kartları PWA
+   FlashCards — Bilgi Kartları PWA
    React (CDN UMD) + h() helper (JSX yok, build adımı yok)
    ============================================================ */
 (function () {
@@ -106,7 +106,7 @@
       createdAt: Date.now(),
       lastStudied: null,
       cards: [
-        { id: uid(), q: 'Kartlar nasıl çevrilir?', a: 'Karta dokunarak veya boşluk tuşuyla.', createdAt: Date.now() },
+        { id: uid(), q: 'Kartlar nasıl çevrilir?', a: 'Karta dokunarak veya boşluk tuşuyla çevrilir.', createdAt: Date.now() },
         { id: uid(), q: 'Verilerim nerede saklanır?', a: 'Sadece bu cihazda, tarayıcının localStorage alanında.', createdAt: Date.now() },
         { id: uid(), q: 'Başka cihaza nasıl taşırım?', a: 'Veri ekranından JSON dışa aktar, diğer cihazda içe aktar.', createdAt: Date.now() }
       ]
@@ -735,7 +735,7 @@
       );
     }
 
-    var title = 'Kartlar';
+    var title = 'FlashCards';
     var body = null;
     var showBack = false;
 

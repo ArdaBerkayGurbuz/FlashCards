@@ -1,8 +1,9 @@
-# Kartlar — Bilgi Kartları PWA
+# FlashCards — Bilgi Kartları PWA
 
-Kağıt hissi veren, **çevrimdışı çalışan**, Türkçe bir bilgi kartı (flash card)
+Koyu temalı, **çevrimdışı çalışan**, Türkçe bir bilgi kartı (flash card)
 uygulaması. Build adımı yok — saf HTML + React (CDN) + vanilla CSS. Veriler
 yalnızca cihazınızda tutulur; cihazlar arası taşıma JSON ile yapılır.
+Canlı: https://ardaberkaygurbuz.github.io/FlashCards/
 
 ## Özellikler
 
@@ -23,15 +24,18 @@ yalnızca cihazınızda tutulur; cihazlar arası taşıma JSON ile yapılır.
 ## Dosya Yapısı
 
 ```
-kartlar/
+FlashCards/
 ├── index.html        # giriş; React/font/manifest bağlar, SW kaydeder
-├── styles.css        # kağıt hissi tasarım sistemi
+├── styles.css        # tasarım sistemi (koyu tema)
 ├── app.js            # React uygulaması (h() helper, JSX yok)
 ├── manifest.json     # PWA manifesti
 ├── sw.js             # service worker (offline app shell)
-├── icons/            # 192 / 512 / maskable / apple-touch PNG
+├── icons/            # flashcards_icons/ — PWA + iOS + Android + Play görselleri
 └── README.md
 ```
+
+> Bu klasör (depo kökü) `github.com/ArdaBerkayGurbuz/FlashCards` reposuna
+> push edilir. Play Store / TWA adımları için ayrıca `../twa/KURULUM.md`.
 
 ## Hızlı Yol (Önerilen): Doğrudan GitHub Pages
 
@@ -54,7 +58,7 @@ seçenekler:
 **A) Node ile (Node kuruluysa, kurulum gerektirmez):**
 
 ```powershell
-cd kartlar
+cd FlashCards
 npx --yes serve -l 8080 .
 # Tarayıcı: http://localhost:8080
 ```
@@ -75,18 +79,17 @@ adresini kullan.
 ### 1. Depoyu hazırlayın
 
 ```bash
-cd kartlar
+cd FlashCards
 git init
 git add .
-git commit -m "Kartlar PWA"
+git commit -m "FlashCards PWA"
 git branch -M main
 git remote add origin https://github.com/<KULLANICI>/<DEPO>.git
 git push -u origin main
 ```
 
-> `kartlar/` klasörünün **içeriğini** deponun köküne koymanız önerilir
-> (yani `index.html` deponun kökünde olsun). İsterseniz tüm `kartlar/`
-> klasörünü de itebilirsiniz — tüm yollar görelidir, ikisi de çalışır.
+> Bu projede `FlashCards/` klasörünün **içeriği deponun kökünde** (yani
+> `index.html` repo kökünde). Tüm yollar görelidir; alt dizinde de çalışır.
 
 ### 2. Pages'i açın
 
@@ -94,8 +97,8 @@ git push -u origin main
 2. **Source**: `Deploy from a branch`
 3. **Branch**: `main`, klasör `/ (root)` → **Save**
 4. 1-2 dakika sonra adresiniz hazır:
-   - Kökte ise: `https://<kullanıcı>.github.io/<depo>/`
-   - `kartlar/` alt klasördeyse: `https://<kullanıcı>.github.io/<depo>/kartlar/`
+   `https://<kullanıcı>.github.io/<depo>/`
+   (bu proje: https://ardaberkaygurbuz.github.io/FlashCards/)
 
 Tüm yollar göreli (`./`) ve `start_url: "./"` olduğu için **alt dizinde de
 sorunsuz** çalışır.
@@ -133,7 +136,8 @@ Taşımak için:
   ve ilk yüklemede önbelleğe alınır. Hiç çevrimiçi olunmadıysa sistem
   yazı tipine düşülür (işlevsellik etkilenmez).
 - Değişiklik yaptığınızda yeni sürümün gelmesi için `sw.js` içindeki
-  `CACHE = 'kartlar-v1'` değerini artırın (örn. `kartlar-v2`).
+  `CACHE = 'flashcards-v3'` değerini artırın (örn. `flashcards-v4`).
+- Play Store / TWA paketleme: `../twa/KURULUM.md`.
 
 ## Lisans
 

@@ -1,9 +1,9 @@
 /* ============================================================
-   Kartlar — Service Worker
+   FlashCards — Service Worker
    App shell cache-first + çevrimdışı yedek
    ============================================================ */
 
-var CACHE = 'kartlar-v2';
+var CACHE = 'flashcards-v3';
 
 // Göreli yollar — GitHub Pages alt-dizininde de çalışır.
 var APP_SHELL = [

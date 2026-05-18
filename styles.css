@@ -3,27 +3,27 @@
    ============================================================ */
 
 :root {
-  --paper:        #f4efe6;   /* açık bej arka plan */
-  --paper-card:   #fbf7ef;   /* kart yüzeyi (biraz daha açık) */
-  --paper-sunk:   #ece4d4;   /* gömük alanlar */
-  --ink:          #2b2622;   /* koyu metin */
-  --ink-soft:     #6b6155;   /* ikincil metin */
-  --ink-faint:    #9a8f7e;   /* silik metin */
-  --line:         #ddd2bd;   /* ince çizgiler */
-  --accent:       #b8472e;   /* terra rosa */
-  --accent-deep:  #97371f;   /* koyu terra */
-  --accent-soft:  #e8c4b6;   /* açık terra */
-  --good:         #4f7a4a;   /* biliyorum */
-  --maybe:        #b07f2e;   /* kararsız */
-  --bad:          #a8442f;   /* bilmiyorum */
+  --paper:        #160F2B;   /* koyu lacivert-mor arka plan */
+  --paper-card:   #211541;   /* kart yüzeyi (zeminden bir tık açık) */
+  --paper-sunk:   #120B22;   /* gömük alanlar (zeminden koyu) */
+  --ink:          #FAF0DC;   /* ana metin (krem) */
+  --ink-soft:     #C9BBD6;   /* ikincil metin (soluk lavanta) */
+  --ink-faint:    #8A7BA0;   /* silik metin (mor-gri) */
+  --line:         #3A2A5C;   /* ince çizgiler (ayırt edilebilir mor) */
+  --accent:       #D54B90;   /* magenta-pembe */
+  --accent-deep:  #823C82;   /* mor (basılı/hover) */
+  --accent-soft:  #3D2552;   /* koyu mor şerit */
+  --good:         #3FA66A;   /* biliyorum (koyu zeminde parlak) */
+  --maybe:        #D99A3A;   /* kararsız (parlak amber) */
+  --bad:          #C87059;   /* bilmiyorum (ikon kiremit vurgusu) */
 
   --r-sm: 8px;
   --r-md: 14px;
   --r-lg: 22px;
 
-  --shadow-1: 0 1px 2px rgba(60, 48, 32, .08), 0 2px 6px rgba(60, 48, 32, .06);
-  --shadow-2: 0 4px 10px rgba(60, 48, 32, .10), 0 10px 30px rgba(60, 48, 32, .10);
-  --shadow-card: 0 2px 4px rgba(60,48,32,.10), 0 14px 40px rgba(60,48,32,.16);
+  --shadow-1: 0 0 0 1px rgba(255,255,255,.04), 0 2px 6px rgba(0,0,0,.45);
+  --shadow-2: 0 0 0 1px rgba(255,255,255,.05), 0 10px 30px rgba(0,0,0,.55);
+  --shadow-card: 0 0 0 1px rgba(213,75,144,.14), 0 14px 40px rgba(0,0,0,.55);
 
   --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-body:  'Inter Tight', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -44,12 +44,14 @@ body {
   font-family: var(--font-body);
   color: var(--ink);
   background-color: var(--paper);
-  /* kağıt grain dokusu: ince noktasal gradyanlar */
+  /* koyu zemin derinlik gradyanı + ince grain noktaları */
   background-image:
-    radial-gradient(rgba(120, 100, 70, .035) 1px, transparent 1px),
-    radial-gradient(rgba(120, 100, 70, .025) 1px, transparent 1px);
-  background-size: 7px 7px, 13px 13px;
-  background-position: 0 0, 3px 4px;
+    radial-gradient(rgba(213, 75, 144, .05) 1px, transparent 1px),
+    radial-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px),
+    linear-gradient(160deg, #160F2B 0%, #1C1138 55%, #281946 100%);
+  background-size: 7px 7px, 13px 13px, 100% 100%;
+  background-position: 0 0, 3px 4px, 0 0;
+  background-attachment: scroll, scroll, fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -174,9 +176,9 @@ button { cursor: pointer; border: none; background: none; }
   padding: 18px 18px 16px;
   box-shadow: var(--shadow-card);
   position: relative;
-  border: 1px solid rgba(255,255,255,.5);
+  border: 1px solid rgba(255,255,255,.06);
   /* sayfa kenarı hissi */
-  background-image: linear-gradient(90deg, var(--accent-soft) 0 4px, transparent 4px);
+  background-image: linear-gradient(90deg, var(--accent) 0 4px, transparent 4px);
   transition: transform .14s ease;
 }
 .deck:active { transform: translateY(1px) scale(.995); }
@@ -313,13 +315,13 @@ button { cursor: pointer; border: none; background: none; }
 .field textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(184, 71, 46, .14);
+  box-shadow: 0 0 0 3px rgba(213, 75, 144, .30);
 }
 .field textarea { min-height: 92px; line-height: 1.5; }
 
 .modal-backdrop {
   position: fixed; inset: 0;
-  background: rgba(40, 32, 22, .42);
+  background: rgba(8, 5, 18, .62);
   backdrop-filter: blur(2px);
   display: flex; align-items: flex-end; justify-content: center;
   z-index: 50;
@@ -334,7 +336,7 @@ button { cursor: pointer; border: none; background: none; }
   max-width: 680px;
   border-radius: var(--r-lg) var(--r-lg) 0 0;
   padding: 24px 22px calc(var(--safe-b) + 24px);
-  box-shadow: 0 -8px 40px rgba(40,32,22,.25);
+  box-shadow: 0 -8px 40px rgba(0,0,0,.6);
   animation: slideup .26s cubic-bezier(.2,.8,.2,1);
 }
 @keyframes slideup { from { transform: translateY(100%) } to { transform: translateY(0) } }
@@ -424,8 +426,8 @@ button { cursor: pointer; border: none; background: none; }
   align-items: center;
   justify-content: center;
   text-align: center;
-  border: 1px solid rgba(255,255,255,.55);
-  background-image: linear-gradient(180deg, rgba(255,255,255,.4), transparent 30%);
+  border: 1px solid rgba(255,255,255,.08);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.05), transparent 30%);
 }
 .face::after {
   /* defter satır hissi */
@@ -458,9 +460,10 @@ button { cursor: pointer; border: none; background: none; }
 .face.front { transform: rotateY(0deg); }
 .face.back {
   transform: rotateY(180deg);
-  background: linear-gradient(180deg, #fdf3ec, var(--paper-card));
+  /* karar gereği cevap kartı krem zemin korunur (ikondaki krem kart) */
+  background: linear-gradient(180deg, #FFF7E6, #FAF0DC);
 }
-.face.back .text { color: var(--accent-deep); }
+.face.back .text { color: #2A1A4E; }
 .face .hint {
   position: absolute;
   bottom: 18px; left: 0; right: 0;
@@ -568,7 +571,7 @@ button { cursor: pointer; border: none; background: none; }
   box-shadow: var(--shadow-card);
   text-align: center;
   margin-bottom: 18px;
-  background-image: linear-gradient(180deg, rgba(255,255,255,.45), transparent 40%);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.05), transparent 40%);
 }
 .stat-hero .pct {
   font-family: var(--font-mono);
@@ -654,8 +657,8 @@ button { cursor: pointer; border: none; background: none; }
   left: 50%;
   bottom: calc(var(--safe-b) + 90px);
   transform: translateX(-50%);
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--accent-deep);
+  color: var(--ink);
   padding: 12px 20px;
   border-radius: 99px;
   font-size: 14px;

@@ -3,7 +3,7 @@
    App shell cache-first + çevrimdışı yedek
    ============================================================ */
 
-var CACHE = 'kartlar-v1';
+var CACHE = 'kartlar-v2';
 
 // Göreli yollar — GitHub Pages alt-dizininde de çalışır.
 var APP_SHELL = [
@@ -12,11 +12,10 @@ var APP_SHELL = [
   './styles.css',
   './app.js',
   './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-192-maskable.png',
-  './icons/icon-512-maskable.png',
-  './icons/apple-touch-icon.png'
+  './icons/flashcards_icons/pwa/icon-192.png',
+  './icons/flashcards_icons/pwa/icon-512.png',
+  './icons/flashcards_icons/pwa/icon-512-maskable.png',
+  './icons/flashcards_icons/ios/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', function (event) {

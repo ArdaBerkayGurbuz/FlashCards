@@ -606,7 +606,9 @@
     }, [props.sessionKey || deck.id]);
     var st = useState(function () {
       return {
-        queue: initial.slice(),
+        // current ilk karttır; kuyruk ondan SONRAKİLERİ tutar
+        // (aksi halde ilk kart iki kez sorulur)
+        queue: initial.slice(1),
         requeue: [],
         current: initial[0] || null,
         flipped: false,

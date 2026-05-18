@@ -3,7 +3,7 @@
    App shell cache-first + çevrimdışı yedek
    ============================================================ */
 
-var CACHE = 'flashcards-v7';
+var CACHE = 'flashcards-v8';
 
 // Göreli yollar — GitHub Pages alt-dizininde de çalışır.
 var APP_SHELL = [

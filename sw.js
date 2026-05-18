@@ -3,7 +3,7 @@
    App shell cache-first + çevrimdışı yedek
    ============================================================ */
 
-var CACHE = 'flashcards-v3';
+var CACHE = 'flashcards-v7';
 
 // Göreli yollar — GitHub Pages alt-dizininde de çalışır.
 var APP_SHELL = [
@@ -79,4 +79,27 @@ self.addEventListener('fetch', function (event) {
       })
     );
   }
+});
+
+// Sprint 4: bildirime tıklanınca uygulamayı aç/odakla, bağlamla çalış
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  var data = event.notification.data || {};
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        var client = list[i];
+        if (client.url.indexOf(self.location.origin) === 0 && 'focus' in client) {
+          client.postMessage({ type: 'notification-click', data: data });
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        var url = data.contextId
+          ? './?action=study&contextId=' + encodeURIComponent(data.contextId)
+          : './';
+        return clients.openWindow(url);
+      }
+    })
+  );
 });

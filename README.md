@@ -1,5 +1,7 @@
 # FlashCards — Bilgi Kartları PWA
 
+**Sürüm: v1.0**
+
 Koyu temalı, **çevrimdışı çalışan**, Türkçe bir bilgi kartı (flash card)
 uygulaması. Build adımı yok — saf HTML + React (CDN) + vanilla CSS. Veriler
 yalnızca cihazınızda tutulur; cihazlar arası taşıma JSON ile yapılır.
@@ -139,6 +141,42 @@ Taşımak için:
   `CACHE = 'flashcards-v3'` değerini artırın (örn. `flashcards-v4`).
 - Play Store / TWA paketleme: `../twa/KURULUM.md`.
 
+## 🆕 Bağlamsal Hatırlatma
+
+Kartlarını konum/zaman/duruma göre etiketleyebilirsin. Uygulamayı açtığında
+o anki bağlamla eşleşen kartlar Home ekranında öne çıkar.
+
+- **Bağlam oluştur**: Bağlamlar sekmesi → + Yeni Bağlam
+- **Karta ata**: Kartı düzenle → Bağlamlar bölümünden seç
+- **Çalış**: Home banner'da "Hadi Başla" veya bağlamın detayından
+
+> PWA sınırı: konum sadece uygulama açıkken kontrol edilir, arka planda
+> takip edilmez. Bildirimler en iyi Android Chrome'da çalışır.
+
+## Bildirimler
+
+Uygulama, bağlam zamanına yaklaşıldığında bildirim göndermeyi dener. PWA
+platform sınırları nedeniyle davranış cihaza göre değişir:
+
+| Senaryo | Android Chrome | iOS Safari (ana ekrana ekli) |
+|---|---|---|
+| Uygulama açıkken bildirim | ✅ | ✅ (iOS 16.4+) |
+| Zamanlanmış bildirim | ⚠️ Uygulama açıkken/dönünce yakalanır | ⚠️ Daha kısıtlı |
+| Push (sunucudan) | ❌ (backend yok) | ❌ (backend yok) |
+| Arka planda konum | ❌ | ❌ |
+
+Kaçırılan zaman bağlamları, uygulamayı tekrar açtığında Home'da bir
+**catch-up şeridi** ile hatırlatılır. Bildirim izni yalnız bir bağlamı
+"bildirim açık" kaydederken veya Ayarlar'dan manuel istenir.
+
 ## Lisans
 
 Kişisel kullanım için serbest.
+
+---
+
+### Yol haritası (V2 — bu sürümde yok)
+
+Capacitor ile native (gerçek arka plan geofence), sunucu sync (çoklu
+cihaz), AI ile kart üretimi, sesli/podcast mod, co-op çalışma, görsel
+hafıza sarayı. Şu an saf statik PWA kapsamı dışındadır.

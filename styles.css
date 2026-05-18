@@ -744,3 +744,568 @@ button { cursor: pointer; border: none; background: none; }
 @media (min-width: 540px) {
   .summary-stats, .stat-grid { gap: 16px; }
 }
+
+/* === Bağlamlar === */
+
+/* Liste satırı (.card-row paterni taklidi) */
+.ctx-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--paper-card);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-1);
+  margin-bottom: 10px;
+  border-left: 3px solid var(--accent-soft);
+  transition: transform .12s ease;
+  cursor: pointer;
+}
+.ctx-row:active { transform: scale(.995); }
+
+.ctx-emoji {
+  flex: 0 0 auto;
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  font-size: 26px;
+  border-radius: var(--r-md);
+  background: var(--paper-sunk);
+}
+[data-theme="light"] .ctx-emoji {
+  background: var(--paper);
+  box-shadow: var(--shadow-1);
+}
+
+.ctx-body { flex: 1; min-width: 0; }
+.ctx-name {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ctx-summary {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  letter-spacing: .02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ctx-summary.none { font-style: italic; }
+
+.ctx-right {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ctx-chevron {
+  font-size: 22px;
+  color: var(--ink-faint);
+  line-height: 1;
+}
+
+/* Toggle switch (CSS-only, --accent açık / --paper-sunk kapalı) */
+.toggle-sw {
+  position: relative;
+  width: 44px; height: 26px;
+  border-radius: 99px;
+  background: var(--paper-sunk);
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+  transition: background .18s ease;
+  padding: 0;
+}
+.toggle-sw.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.toggle-knob {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+  transition: transform .18s cubic-bezier(.3,.7,.3,1);
+}
+.toggle-sw.on .toggle-knob { transform: translateX(18px); }
+
+/* Editör: büyük emoji önizleme */
+.ctx-emoji-lg {
+  font-size: 44px;
+  text-align: center;
+  margin-bottom: 12px;
+  line-height: 1;
+}
+
+/* Emoji grid */
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+.emoji-cell {
+  aspect-ratio: 1 / 1;
+  display: grid; place-items: center;
+  font-size: 22px;
+  border-radius: var(--r-md);
+  background: var(--paper-sunk);
+  border: 1px solid transparent;
+  transition: transform .12s ease, border-color .12s ease;
+}
+.emoji-cell:active { transform: scale(.9); }
+.emoji-cell.sel {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Bölüm kutusu (konum / zaman / bildirim) */
+.ctx-section {
+  background: var(--paper-card);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.ctx-sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 15px;
+}
+.ctx-sec-head + * { margin-top: 14px; }
+.ctx-sec-hint {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.ctx-sub-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin: 14px 0 7px;
+}
+
+/* Chip seçici (yarıçap / gün / cooldown) */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  padding: 9px 14px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  transition: transform .12s ease, background .15s ease, color .15s ease;
+}
+.chip:active { transform: scale(.94); }
+.chip.sel {
+  background: var(--accent);
+  color: #fff7f0;
+  border-color: var(--accent);
+}
+
+/* Konum koordinatı */
+.ctx-coord {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-faint);
+  margin-top: 12px;
+}
+
+/* Uyarı / hata satırı */
+.ctx-warn {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--bad);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Zaman input ikilisi */
+.time-row {
+  display: flex;
+  gap: 12px;
+}
+.time-row .field { flex: 1; margin-bottom: 0; }
+
+/* Range input */
+.ctx-range {
+  width: 100%;
+  accent-color: var(--accent);
+  margin: 2px 0 4px;
+}
+
+@media (max-width: 360px) {
+  .emoji-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* === Sprint 2: Kart-Bağlam İlişkisi === */
+
+/* Kart editöründeki "Bağlamlar" bölümü (Front/Back ile aynı ritim) */
+.cm-ctx-sub {
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin: -3px 0 10px;
+}
+.cm-ctx-hint {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--ink-faint);
+  margin-bottom: 10px;
+}
+.cm-ctx-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--ink-soft);
+  background: var(--paper-sunk);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+}
+
+/* "Bu bağlama bağlı kartlar" bölümü (ctx-section paterni miras) */
+.linked-sec { margin-top: 16px; }
+.linked-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+.linked-empty {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.linked-empty-sub {
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-style: italic;
+  margin-top: 4px;
+}
+.linked-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px dashed var(--line);
+  cursor: pointer;
+  transition: opacity .12s ease;
+}
+.linked-row:first-of-type { border-top: none; }
+.linked-row:active { opacity: .6; }
+.linked-body { flex: 1; min-width: 0; }
+.linked-deck {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: .03em;
+  margin-bottom: 2px;
+}
+.linked-front {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.linked-x {
+  flex: 0 0 auto;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  transition: transform .12s ease, color .12s ease;
+}
+.linked-x:active { transform: scale(.88); color: var(--bad); }
+
+/* Bağlamlar listesinde "kart yok" göstergesi */
+.ctx-nocards {
+  font-style: italic;
+  opacity: .7;
+}
+
+/* === Sprint 3: Tetikleme + Banner === */
+
+/* Aktif bağlam banner'ı — .deck dili, accent şerit (neon yok) */
+.banner {
+  position: relative;
+  background: var(--paper-card);
+  border-radius: var(--r-lg);
+  padding: 18px 18px 16px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--accent-soft);
+  background-image: linear-gradient(90deg, var(--accent) 0 4px, transparent 4px);
+}
+.banner-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 6px;
+}
+.banner-emoji { font-size: 30px; line-height: 1; }
+.banner-name {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 600;
+}
+.banner-count {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  padding-left: 6px;
+  margin-top: 8px;
+}
+.banner-reason {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  padding-left: 6px;
+  margin-top: 4px;
+  letter-spacing: .02em;
+}
+.banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding-left: 6px;
+}
+.banner-actions .btn { flex: 1; }
+.banner-x {
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
+  font-size: 17px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  transition: transform .12s ease;
+}
+.banner-x:active { transform: scale(.88); }
+.banner-more {
+  display: block;
+  margin-top: 10px;
+  text-align: center;
+  width: 100%;
+}
+
+/* Eşleşme yok — küçük gri ipucu satırı */
+.banner-hint-wrap { margin-bottom: 16px; }
+.banner-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink-faint);
+  background: var(--paper-sunk);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+}
+.banner-refresh {
+  width: 34px; height: 34px;
+  font-size: 15px;
+  flex: 0 0 auto;
+}
+.banner-refresh:disabled { opacity: .5; pointer-events: none; }
+.banner-geo-link {
+  display: block;
+  margin-top: 8px;
+  text-align: left;
+  padding-left: 2px;
+}
+.banner-geo-note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-style: italic;
+  padding-left: 2px;
+}
+
+/* Yenile spinner */
+.spin {
+  display: inline-block;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* === Sprint 4: Onboarding + Bildirim + Cila === */
+
+/* Onboarding overlay (kapatılamaz backdrop) */
+.onb-backdrop {
+  position: fixed; inset: 0;
+  background: var(--paper);
+  background-image: var(--bg-gradient);
+  z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(var(--safe-t) + 24px) 22px calc(var(--safe-b) + 24px);
+  animation: fade .2s ease;
+}
+.onb-card {
+  width: 100%;
+  max-width: 460px;
+  background: var(--paper-card);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  padding: 28px 24px 22px;
+  position: relative;
+  animation: popin .26s cubic-bezier(.2,.8,.2,1);
+}
+.onb-skip {
+  position: absolute;
+  top: 14px; right: 14px;
+}
+.onb-screen { text-align: center; }
+.onb-art {
+  font-size: 56px;
+  line-height: 1;
+  margin: 14px 0 20px;
+}
+.onb-title {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.onb-text {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  margin-bottom: 24px;
+}
+.onb-fake-banner {
+  background: var(--paper-sunk);
+  border-radius: var(--r-md);
+  border-left: 3px solid var(--accent);
+  padding: 14px 16px;
+  text-align: left;
+  margin-bottom: 24px;
+}
+.onb-fb-head { font-family: var(--font-serif); font-weight: 600; font-size: 16px; }
+.onb-fb-count { color: var(--accent); font-weight: 700; margin-top: 6px; }
+.onb-fb-reason {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin-top: 4px;
+}
+.onb-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+.onb-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--paper-sunk);
+  transition: background .2s ease, transform .2s ease;
+}
+.onb-dot.on { background: var(--accent); transform: scale(1.25); }
+
+/* Catch-up şeridi (banner'dan sönük, gri) */
+.catchup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--paper-sunk);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-left: 3px solid var(--ink-faint);
+}
+.catchup-text {
+  font-size: 13px;
+  color: var(--ink-soft);
+  flex: 1;
+  min-width: 60%;
+}
+.catchup-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.catchup-actions .btn { padding: 8px 14px; font-size: 13px; }
+
+/* Stats: bağlam aktivite barı */
+.actrow { margin-bottom: 14px; }
+.actrow-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.actrow-name { font-weight: 600; font-size: 14px; }
+.actrow-n { font-size: 12px; color: var(--ink-faint); }
+.actbar {
+  height: 8px;
+  background: var(--paper-sunk);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.actbar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width .4s cubic-bezier(.3,.7,.3,1);
+}
+
+/* SW güncelleme şeridi */
+.sw-update {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-b) + 90px);
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 10px 18px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow-2);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: toastin .25s ease;
+}
+.sw-update .linkbtn { color: var(--accent); padding: 2px 4px; }
+
+/* a11y: belirgin klavye odak göstergesi */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

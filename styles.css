@@ -3,27 +3,10 @@
    ============================================================ */
 
 :root {
-  --paper:        #160F2B;   /* koyu lacivert-mor arka plan */
-  --paper-card:   #211541;   /* kart yüzeyi (zeminden bir tık açık) */
-  --paper-sunk:   #120B22;   /* gömük alanlar (zeminden koyu) */
-  --ink:          #FAF0DC;   /* ana metin (krem) */
-  --ink-soft:     #C9BBD6;   /* ikincil metin (soluk lavanta) */
-  --ink-faint:    #8A7BA0;   /* silik metin (mor-gri) */
-  --line:         #3A2A5C;   /* ince çizgiler (ayırt edilebilir mor) */
-  --accent:       #D54B90;   /* magenta-pembe */
-  --accent-deep:  #823C82;   /* mor (basılı/hover) */
-  --accent-soft:  #3D2552;   /* koyu mor şerit */
-  --good:         #3FA66A;   /* biliyorum (koyu zeminde parlak) */
-  --maybe:        #D99A3A;   /* kararsız (parlak amber) */
-  --bad:          #C87059;   /* bilmiyorum (ikon kiremit vurgusu) */
-
+  /* tema-bağımsız ortak değişkenler */
   --r-sm: 8px;
   --r-md: 14px;
   --r-lg: 22px;
-
-  --shadow-1: 0 0 0 1px rgba(255,255,255,.04), 0 2px 6px rgba(0,0,0,.45);
-  --shadow-2: 0 0 0 1px rgba(255,255,255,.05), 0 10px 30px rgba(0,0,0,.55);
-  --shadow-card: 0 0 0 1px rgba(213,75,144,.14), 0 14px 40px rgba(0,0,0,.55);
 
   --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-body:  'Inter Tight', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -31,6 +14,63 @@
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---- KOYU tema (varsayılan) ---- */
+:root,
+[data-theme="dark"] {
+  --paper:        #160F2B;   /* koyu lacivert-mor arka plan */
+  --paper-card:   #211541;   /* kart yüzeyi (zeminden bir tık açık) */
+  --paper-sunk:   #120B22;   /* gömük alanlar (zeminden koyu) */
+  --ink:          #FAF0DC;   /* ana metin (krem) */
+  --ink-soft:     #C9BBD6;   /* ikincil metin (soluk lavanta) */
+  --ink-faint:    #8A7BA0;   /* silik metin (mor-gri) */
+  --line:         #3A2A5C;   /* ince çizgiler */
+  --accent:       #D54B90;   /* magenta-pembe */
+  --accent-deep:  #823C82;   /* mor (basılı/hover) */
+  --accent-soft:  #3D2552;   /* koyu mor şerit */
+  --good:         #3FA66A;
+  --maybe:        #D99A3A;
+  --bad:          #C87059;
+
+  --shadow-1: 0 0 0 1px rgba(255,255,255,.04), 0 2px 6px rgba(0,0,0,.45);
+  --shadow-2: 0 0 0 1px rgba(255,255,255,.05), 0 10px 30px rgba(0,0,0,.55);
+  --shadow-card: 0 0 0 1px rgba(213,75,144,.14), 0 14px 40px rgba(0,0,0,.55);
+
+  /* kağıt grain dokusu (koyu zemin) */
+  --grain-1: rgba(213, 75, 144, .05);
+  --grain-2: rgba(255, 255, 255, .025);
+  --bg-gradient: linear-gradient(160deg, #160F2B 0%, #1C1138 55%, #281946 100%);
+  /* çalışma kartı arka yüzü (cevap) — her iki temada krem */
+  --card-back-bg: linear-gradient(180deg, #FFF7E6, #FAF0DC);
+  --card-back-ink: #2A1A4E;
+}
+
+/* ---- AÇIK tema (ikon kimliğiyle uyumlu, aynı magenta accent) ---- */
+[data-theme="light"] {
+  --paper:        #F6F1FA;   /* çok açık lila-beyaz zemin */
+  --paper-card:   #FFFFFF;   /* beyaz kart yüzeyi */
+  --paper-sunk:   #EDE6F4;   /* hafif gömük alan */
+  --ink:          #251339;   /* koyu mor metin */
+  --ink-soft:     #5C4B70;   /* ikincil metin */
+  --ink-faint:    #9387A6;   /* silik metin */
+  --line:         #E0D6EC;   /* ince çizgiler */
+  --accent:       #C13B7E;   /* magenta (açık zeminde okunur ton) */
+  --accent-deep:  #9C2F66;   /* koyu magenta (basılı/hover) */
+  --accent-soft:  #F0D6E6;   /* açık pembe şerit */
+  --good:         #2E8B57;
+  --maybe:        #B97E1E;
+  --bad:          #BA5A45;
+
+  --shadow-1: 0 1px 2px rgba(70,40,90,.08), 0 2px 6px rgba(70,40,90,.06);
+  --shadow-2: 0 4px 10px rgba(70,40,90,.10), 0 10px 30px rgba(70,40,90,.12);
+  --shadow-card: 0 2px 4px rgba(70,40,90,.08), 0 14px 40px rgba(193,59,126,.14);
+
+  --grain-1: rgba(193, 59, 126, .035);
+  --grain-2: rgba(120, 90, 140, .03);
+  --bg-gradient: linear-gradient(160deg, #F6F1FA 0%, #F1EAF7 55%, #EDE4F5 100%);
+  --card-back-bg: linear-gradient(180deg, #FFFFFF, #F6F1FA);
+  --card-back-ink: #9C2F66;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,11 +84,11 @@ body {
   font-family: var(--font-body);
   color: var(--ink);
   background-color: var(--paper);
-  /* koyu zemin derinlik gradyanı + ince grain noktaları */
+  /* derinlik gradyanı + ince grain noktaları (tema değişkenli) */
   background-image:
-    radial-gradient(rgba(213, 75, 144, .05) 1px, transparent 1px),
-    radial-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px),
-    linear-gradient(160deg, #160F2B 0%, #1C1138 55%, #281946 100%);
+    radial-gradient(var(--grain-1) 1px, transparent 1px),
+    radial-gradient(var(--grain-2) 1px, transparent 1px),
+    var(--bg-gradient);
   background-size: 7px 7px, 13px 13px, 100% 100%;
   background-position: 0 0, 3px 4px, 0 0;
   background-attachment: scroll, scroll, fixed;
@@ -56,6 +96,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   overscroll-behavior-y: none;
+  transition: background-color .25s ease, color .25s ease;
 }
 
 .boot {
@@ -323,9 +364,12 @@ button { cursor: pointer; border: none; background: none; }
   position: fixed; inset: 0;
   background: rgba(8, 5, 18, .62);
   backdrop-filter: blur(2px);
-  display: flex; align-items: flex-end; justify-content: center;
+  /* dikeyde ORTALA; klavye açılınca taşarsa kaydırılabilir kalsın */
+  display: flex; align-items: center; justify-content: center;
   z-index: 50;
-  padding: 0;
+  padding: calc(var(--safe-t) + 16px) 16px calc(var(--safe-b) + 16px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   animation: fade .18s ease;
 }
 @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
@@ -333,13 +377,20 @@ button { cursor: pointer; border: none; background: none; }
 .modal {
   background: var(--paper);
   width: 100%;
-  max-width: 680px;
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
-  padding: 24px 22px calc(var(--safe-b) + 24px);
-  box-shadow: 0 -8px 40px rgba(0,0,0,.6);
-  animation: slideup .26s cubic-bezier(.2,.8,.2,1);
+  max-width: 480px;
+  /* ekrana sığmazsa modal kendi içinde kaysın (klavye + uzun form) */
+  max-height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--r-lg);
+  padding: 24px 22px;
+  box-shadow: 0 16px 50px rgba(0,0,0,.6);
+  animation: popin .24s cubic-bezier(.2,.8,.2,1);
 }
-@keyframes slideup { from { transform: translateY(100%) } to { transform: translateY(0) } }
+@keyframes popin {
+  from { transform: scale(.94); opacity: 0 }
+  to   { transform: scale(1); opacity: 1 }
+}
 
 .modal h3 {
   font-family: var(--font-serif);
@@ -460,10 +511,10 @@ button { cursor: pointer; border: none; background: none; }
 .face.front { transform: rotateY(0deg); }
 .face.back {
   transform: rotateY(180deg);
-  /* karar gereği cevap kartı krem zemin korunur (ikondaki krem kart) */
-  background: linear-gradient(180deg, #FFF7E6, #FAF0DC);
+  /* cevap kartı tema değişkenli (koyu temada krem, açık temada beyaz) */
+  background: var(--card-back-bg);
 }
-.face.back .text { color: #2A1A4E; }
+.face.back .text { color: var(--card-back-ink); }
 .face .hint {
   position: absolute;
   bottom: 18px; left: 0; right: 0;

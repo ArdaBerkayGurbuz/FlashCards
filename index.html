@@ -3,12 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+
+  <!-- theme-color: script ondan ÖNCE gelmeli ki güncelleyebilsin -->
+  <meta name="theme-color" content="#160F2B" />
+
+  <!-- Tema flash'ını (FOUC) önle: stil yüklenmeden data-theme'i ayarla -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('flashcards.theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = (window.matchMedia &&
+               window.matchMedia('(prefers-color-scheme: light)').matches)
+              ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', t === 'light' ? '#F6F1FA' : '#160F2B');
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+
   <title>FlashCards — Bilgi Kartları</title>
   <meta name="description" content="Kağıt hissi veren, çevrimdışı çalışan bilgi kartı uygulaması." />
 
   <!-- PWA -->
   <link rel="manifest" href="./manifest.json" />
-  <meta name="theme-color" content="#160F2B" />
 
   <!-- iOS ana ekran -->
   <meta name="apple-mobile-web-app-capable" content="yes" />

@@ -21,6 +21,29 @@
   // ---------- Yardımcılar ----------
 
   var STORAGE_KEY = 'flashcards.v1';
+  var THEME_KEY = 'flashcards.theme';
+
+  // Tema: kayıtlı seçim varsa onu, yoksa cihaz tercihini kullan
+  function getInitialTheme() {
+    try {
+      var saved = localStorage.getItem(THEME_KEY);
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch (e) {}
+    try {
+      if (window.matchMedia &&
+          window.matchMedia('(prefers-color-scheme: light)').matches) {
+        return 'light';
+      }
+    } catch (e) {}
+    return 'dark';
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    // tarayıcı UI rengi (durum çubuğu) temayla uyumlu
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'light' ? '#F6F1FA' : '#160F2B');
+  }
 
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -536,8 +559,21 @@
     var pendingImportHook = useState(null);
     var pendingImport = pendingImportHook[0], setPendingImport = pendingImportHook[1];
 
+    var themeHook = useState(getInitialTheme);
+    var theme = themeHook[0], setTheme = themeHook[1];
+
     // her değişimde kaydet
     useEffect(function () { persist(state); }, [state]);
+
+    // tema değişince uygula + kaydet
+    useEffect(function () {
+      applyTheme(theme);
+      try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+    }, [theme]);
+
+    function toggleTheme() {
+      setTheme(function (t) { return t === 'light' ? 'dark' : 'light'; });
+    }
 
     function showToast(text) { setToast({ text: text, id: uid() }); }
 
@@ -815,6 +851,12 @@
           ? h('button', { className: 'back', onClick: function () { setRoute({ name: 'list' }); } }, '‹ Desteler')
           : null,
         h('h1', null, title),
+        h('button', {
+          className: 'iconbtn',
+          onClick: toggleTheme,
+          'aria-label': theme === 'light' ? 'Koyu temaya geç' : 'Açık temaya geç',
+          title: theme === 'light' ? 'Koyu tema' : 'Açık tema'
+        }, theme === 'light' ? '☾' : '☀'),
         route.name === 'list'
           ? h('button', { className: 'iconbtn accent', onClick: function () { setModal({ type: 'newDeck' }); }, 'aria-label': 'Yeni deste' }, '＋')
           : null

@@ -450,6 +450,7 @@ button { cursor: pointer; border: none; background: none; }
   justify-content: center;
   perspective: 1400px;
   padding: 10px 0 22px;
+  position: relative;        /* .flashcard-stack absolute referansı */
 }
 
 .flashcard {
@@ -458,7 +459,7 @@ button { cursor: pointer; border: none; background: none; }
   aspect-ratio: 3 / 4;
   position: relative;
   transform-style: preserve-3d;
-  transition: transform .55s cubic-bezier(.2,.85,.25,1);
+  transition: transform .58s cubic-bezier(.34,1.2,.4,1); /* canlı flip eğrisi */
   cursor: pointer;
 }
 .flashcard.flipped { transform: rotateY(180deg); }
@@ -1648,6 +1649,9 @@ button { cursor: pointer; border: none; background: none; }
 /* Erişilebilirlik: hareket hassasiyeti — gradyan kalır, animasyon durur */
 @media (prefers-reduced-motion: reduce) {
   .aurora-bg { animation: none; }
+  .card-anim-wrap.leaving,
+  .card-anim-wrap.entering { animation: none; opacity: 1; transform: none; }
+  .flashcard { transition: none; }
 }
 
 /* === Düzeltme: görselli kart düzeni ===
@@ -1680,4 +1684,57 @@ button { cursor: pointer; border: none; background: none; }
 
 @media (max-width: 360px) {
   .face:has(.face-img) .face-img { max-height: 108px; }
+}
+
+/* === Kart yığını + geçiş animasyonu ===
+   Yığın: aktif kartın arkasında dekoratif katmanlar (deste hissi).
+   Geçiş: eski kart yukarı kayıp solar, yeni alttan gelir. Flip ile
+   transform çakışmasın diye slide AYRI sarmalayıcıda (.card-anim-wrap),
+   flip .flashcard'da kalır (perspective .flip-area'da). */
+
+@keyframes cardLeave {
+  from { transform: translateY(0) scale(1);       opacity: 1; }
+  to   { transform: translateY(-46px) scale(.90); opacity: 0; }
+}
+@keyframes cardEnter {
+  from { transform: translateY(40px) scale(.92);  opacity: 0; }
+  60%  { opacity: 1; }
+  to   { transform: translateY(0) scale(1);       opacity: 1; }
+}
+
+.card-anim-wrap {
+  width: 100%;
+  max-width: 440px;            /* .flashcard ile aynı ölçü */
+  position: relative;
+  z-index: 2;                  /* yığın katmanlarının üstünde */
+  will-change: transform, opacity;
+}
+.card-anim-wrap.leaving  { animation: cardLeave  .32s cubic-bezier(.4,0,.6,1) forwards; }
+.card-anim-wrap.entering { animation: cardEnter  .34s cubic-bezier(.2,.8,.25,1) both; }
+
+/* Dekoratif arka katmanlar — .face yüzeyiyle aynı, tema uyumlu */
+.flashcard-stack {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 100%;
+  max-width: 440px;
+  aspect-ratio: 3 / 4;
+  background: var(--paper-card);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(255,255,255,.08);
+  pointer-events: none;
+  z-index: 1;
+}
+.flashcard-stack.stack-1 {
+  transform: translate(-50%,-50%) translateY(10px) scale(.965);
+  opacity: .55;
+}
+.flashcard-stack.stack-2 {
+  transform: translate(-50%,-50%) translateY(19px) scale(.93);
+  opacity: .38;
+}
+.flashcard-stack.stack-3 {
+  transform: translate(-50%,-50%) translateY(27px) scale(.90);
+  opacity: .24;
 }

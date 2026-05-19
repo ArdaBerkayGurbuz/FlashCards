@@ -772,6 +772,12 @@
     });
     var s = st[0], setS = st[1];
 
+    // Sprint: kart geçiş animasyonu durumu (slide-out → advance → slide-in)
+    var aSt = useState('idle'); // 'idle' | 'leaving' | 'entering'
+    var anim = aSt[0], setAnim = aSt[1];
+    var animTimer = useRef(null);
+    var LEAVE_MS = 320, ENTER_MS = 340; // CSS .leaving/.entering ile birebir
+
     function advance(rating) {
       // rating: 'good' | 'maybe' | 'bad'
       setS(function (p) {
@@ -804,7 +810,28 @@
       });
     }
 
+    // advance'i saran geçiş: eski kart kayıp çıkar → advance → yeni kart gelir
+    function requestAdvance(rating) {
+      if (anim !== 'idle') return; // çift-tık / geçiş ortası kilidi
+      setAnim('leaving');
+      animTimer.current = setTimeout(function () {
+        advance(rating); // mevcut mantık aynen (queue/requeue/done)
+        setAnim('entering');
+        animTimer.current = setTimeout(function () {
+          setAnim('idle');
+        }, ENTER_MS);
+      }, LEAVE_MS);
+    }
+
+    // Geçiş animasyon timer'ını unmount'ta temizle
+    useEffect(function () {
+      return function () {
+        if (animTimer.current) clearTimeout(animTimer.current);
+      };
+    }, []);
+
     function toggleFlip() {
+      if (anim !== 'idle') return; // geçiş ortasında flip'i engelle
       setS(function (p) { return Object.assign({}, p, { flipped: !p.flipped }); });
     }
 
@@ -813,13 +840,13 @@
       function onKey(e) {
         if (s.done) return;
         if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); toggleFlip(); }
-        else if (s.flipped && (e.key === '1')) advance('bad');
-        else if (s.flipped && (e.key === '2')) advance('maybe');
-        else if (s.flipped && (e.key === '3')) advance('good');
+        else if (s.flipped && (e.key === '1')) requestAdvance('bad');
+        else if (s.flipped && (e.key === '2')) requestAdvance('maybe');
+        else if (s.flipped && (e.key === '3')) requestAdvance('good');
       }
       window.addEventListener('keydown', onKey);
       return function () { window.removeEventListener('keydown', onKey); };
-    }, [s.flipped, s.done]);
+    }, [s.flipped, s.done, anim]);
 
     // Seans bitince istatistikleri kaydet (bir kez)
     var savedRef = useRef(false);
@@ -859,6 +886,20 @@
     var card = s.current;
     var progress = s.total > 0 ? Math.round((s.seen / (s.seen + s.queue.length + s.requeue.length + 1)) * 100) : 0;
 
+    // Yığın görünümü: aktif kartın arkasında kalan kart sayısına göre
+    // (max 3) dekoratif boş katman — son kartta yığın yok
+    var remaining = s.queue.length + s.requeue.length;
+    var stackCount = remaining >= 3 ? 3 : remaining;
+    var stackLayers = [];
+    for (var li = 0; li < stackCount; li++) {
+      stackLayers.push(h('div', {
+        className: 'flashcard-stack stack-' + (li + 1),
+        key: 'stk' + li, 'aria-hidden': 'true'
+      }));
+    }
+    var wrapCls = 'card-anim-wrap' +
+      (anim === 'leaving' ? ' leaving' : anim === 'entering' ? ' entering' : '');
+
     return h('div', { className: 'study' },
       h('div', { className: 'study-top' },
         h('button', { className: 'iconbtn', onClick: props.onExit, 'aria-label': 'Çıkış' }, '✕'),
@@ -869,6 +910,8 @@
           s.seen + ' / ' + (s.seen + s.queue.length + s.requeue.length + 1))
       ),
       h('div', { className: 'flip-area', onClick: toggleFlip },
+        stackLayers,
+        h('div', { className: wrapCls },
         h('div', { className: 'flashcard' + (s.flipped ? ' flipped' : ''), role: 'button', 'aria-label': 'Kartı çevir' },
           h('div', { className: 'face front' },
             h('div', { className: 'tag' }, 'SORU'),
@@ -896,14 +939,15 @@
               : null
           )
         )
+        )
       ),
       s.flipped
-        ? h('div', { className: 'rate-row' },
-            h('button', { className: 'rate bad', onClick: function (e) { e.stopPropagation(); advance('bad'); } },
+        ? h('div', { className: 'rate-row' + (anim !== 'idle' ? ' hidden' : '') },
+            h('button', { className: 'rate bad', onClick: function (e) { e.stopPropagation(); requestAdvance('bad'); } },
               h('span', { className: 'ic' }, '✕'), h('span', null, 'Bilmiyorum')),
-            h('button', { className: 'rate maybe', onClick: function (e) { e.stopPropagation(); advance('maybe'); } },
+            h('button', { className: 'rate maybe', onClick: function (e) { e.stopPropagation(); requestAdvance('maybe'); } },
               h('span', { className: 'ic' }, '~'), h('span', null, 'Kararsız')),
-            h('button', { className: 'rate good', onClick: function (e) { e.stopPropagation(); advance('good'); } },
+            h('button', { className: 'rate good', onClick: function (e) { e.stopPropagation(); requestAdvance('good'); } },
               h('span', { className: 'ic' }, '✓'), h('span', null, 'Biliyorum'))
           )
         : h('div', { className: 'tap-hint' }, 'Karta dokun, sonra kendini değerlendir')

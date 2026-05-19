@@ -1226,6 +1226,7 @@
     // Durum 2: eşleşme yok
     if (!matches || matches.length === 0) {
       return h('div', { className: 'banner-hint-wrap' },
+        h('div', { className: 'aurora-bg', 'aria-hidden': 'true' }),
         h('div', { className: 'banner-hint' },
           h('span', null, '📍 Şu an aktif bağlam yok'),
           refreshBtn

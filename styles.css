@@ -1120,7 +1120,15 @@ button { cursor: pointer; border: none; background: none; }
 }
 
 /* Eşleşme yok — küçük gri ipucu satırı */
-.banner-hint-wrap { margin-bottom: 16px; }
+.banner-hint-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  padding: 4px;
+  margin-bottom: 16px;
+}
+/* hint içeriği aurora arka katmanın önünde */
+.banner-hint-wrap > :not(.aurora-bg) { position: relative; z-index: 1; }
 .banner-hint {
   display: flex;
   align-items: center;

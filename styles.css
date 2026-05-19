@@ -1602,44 +1602,40 @@ button { cursor: pointer; border: none; background: none; }
 }
 
 /* === Aurora Arka Plan === */
-/* Orijinal shadcn/Tailwind "Aurora Background" efektinin saf-CSS,
-   tema-değişkenli, sakin uyarlaması. framer-motion / invert hack YOK;
-   renkler --accent ailesinden gelir → koyu/açık otomatik uyum. */
+/* shadcn/Tailwind "Aurora Background" efektinin saf-CSS, tema-değişkenli
+   uyarlaması. framer-motion / invert hack YOK; renkler --accent
+   ailesinden → koyu/açık otomatik. Belirgin/canlı (kullanıcı kararı):
+   maske yok, yüksek opaklık, doygun accent katmanı. */
 
 @keyframes aurora {
-  from { background-position: 50% 50%, 50% 50%; }
-  to   { background-position: 350% 50%, 350% 50%; }
+  from { background-position: 0% 50%; }
+  to   { background-position: 300% 50%; }
 }
 
 .aurora-bg {
   position: absolute;
-  inset: -10px;            /* blur kenar taşması için */
+  inset: -40px;            /* blur kenar taşması için geniş pay */
   z-index: 0;
   pointer-events: none;
   border-radius: inherit;
-  opacity: .22;            /* sakin (kullanıcı kararı) */
-  filter: blur(28px);
+  opacity: .65;            /* canlı/belirgin (kullanıcı kararı) */
+  filter: blur(14px) saturate(1.4);
   will-change: background-position;
-  /* iki katmanlı aurora deseni — tema accent renkleriyle */
+  /* tek katman, doygun accent aurora — soluk kağıt katmanı yok */
   background-image:
     repeating-linear-gradient(
       100deg,
-      var(--paper-card) 0%, var(--paper-card) 7%,
-      transparent 10%, transparent 12%, var(--paper-card) 16%),
-    repeating-linear-gradient(
-      100deg,
-      var(--accent) 10%, var(--accent-soft) 15%,
-      var(--accent-deep) 20%, var(--accent-soft) 25%, var(--accent) 30%);
-  background-size: 300% 200%, 200% 100%;
-  background-position: 50% 50%, 50% 50%;
-  animation: aurora 60s linear infinite;
-  /* efekt üstte yoğun, alta doğru söner — metni boğmaz */
-  -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, transparent 70%);
-  mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, transparent 70%);
+      var(--accent) 0%, var(--accent-deep) 8%,
+      var(--accent-soft) 14%, var(--accent) 22%,
+      var(--accent-deep) 30%);
+  background-size: 200% 200%;
+  background-position: 50% 50%;
+  animation: aurora 28s linear infinite;
+  /* maske YOK — tüm alanda görünür (kullanıcı kararı) */
 }
 
-/* Onboarding tam ekran arka planı — biraz daha görünür ama yine sakin */
-.onb-aurora { opacity: .28; }
+/* Onboarding tam ekran arka planı — daha da belirgin */
+.onb-aurora { opacity: .78; }
 
 /* Erişilebilirlik: hareket hassasiyeti — gradyan kalır, animasyon durur */
 @media (prefers-reduced-motion: reduce) {

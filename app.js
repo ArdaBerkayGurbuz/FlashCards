@@ -971,7 +971,8 @@
       var p = stats.perDeck[id];
       return {
         name: deckById[id] ? deckById[id].name : '(silinmiş deste)',
-        sessions: p.sessions, seen: p.seen, correct: p.correct
+        sessions: p.sessions, seen: p.seen, correct: p.correct,
+        pct: pct(p.correct, p.seen)
       };
     }).filter(function (r) { return r.seen > 0; });
 
@@ -991,49 +992,76 @@
       return a.count > m ? a.count : m;
     }, 0);
 
+    // Çubuk grafik mount animasyonu: ilk render'da 0, hemen ardından
+    // gerçek değere geçince CSS height transition ile yükselir.
+    var mSt = useState(false);
+    var mounted = mSt[0], setMounted = mSt[1];
+    useEffect(function () {
+      var id = requestAnimationFrame(function () { setMounted(true); });
+      return function () { cancelAnimationFrame(id); };
+    }, []);
+
+    var overall = pct(stats.totalCorrect, stats.totalSeen);
+
     return h('div', null,
-      h('div', { className: 'stat-hero' },
-        h('div', { className: 'pct' }, pct(stats.totalCorrect, stats.totalSeen) + '%'),
-        h('div', { className: 'pct-cap' }, 'Genel başarı oranı')
-      ),
-      h('div', { className: 'stat-grid' },
-        h('div', { className: 'stat-cell' },
-          h('div', { className: 'num' }, stats.totalSessions),
-          h('div', { className: 'cap' }, 'Seans')),
-        h('div', { className: 'stat-cell' },
-          h('div', { className: 'num' }, stats.totalSeen),
-          h('div', { className: 'cap' }, 'Görülen')),
-        h('div', { className: 'stat-cell' },
-          h('div', { className: 'num' }, stats.totalCorrect),
-          h('div', { className: 'cap' }, 'Doğru'))
-      ),
-      h('div', { className: 'section-head' },
-        h('span', { className: 'lbl' }, 'Deste bazlı kırılım')
+      // Gradient kahraman kart: büyük genel başarı + satır içi 3'lü özet
+      h('div', { className: 'stats-hero-card' },
+        h('div', { className: 'shc-main' },
+          h('div', { className: 'shc-pct' }, overall + '%'),
+          h('div', { className: 'shc-cap' }, 'Genel başarı oranı')
+        ),
+        h('div', { className: 'shc-summary' },
+          h('div', { className: 'shc-stat' },
+            h('div', { className: 'v' }, stats.totalSessions),
+            h('div', { className: 'k' }, 'Seans')),
+          h('div', { className: 'shc-stat' },
+            h('div', { className: 'v' }, stats.totalSeen),
+            h('div', { className: 'k' }, 'Görülen')),
+          h('div', { className: 'shc-stat' },
+            h('div', { className: 'v' }, stats.totalCorrect),
+            h('div', { className: 'k' }, 'Doğru'))
+        )
       ),
       perRows.length === 0
         ? h('div', { className: 'empty' },
             h('p', null, 'Henüz çalışma kaydı yok. Bir deste çalıştığınızda istatistikler burada görünecek.'))
-        : h('div', { className: 'stat-table' },
-            h('div', { className: 'thead' },
-              h('div', null, 'Deste'),
-              h('div', { style: { textAlign: 'right' } }, 'Sns'),
-              h('div', { style: { textAlign: 'right' } }, 'Görü'),
-              h('div', { style: { textAlign: 'right' } }, '%')
+        : h('div', { className: 'stats-split' },
+            // Sol: animasyonlu çubuk grafik (deste başarı %)
+            h('div', { className: 'stats-bars-card' },
+              h('div', { className: 'stats-card-head' }, 'Deste başarısı'),
+              h('div', { className: 'stats-bars' },
+                perRows.map(function (r, i) {
+                  return h('div', { className: 'bar-col', key: i },
+                    h('div', { className: 'bar-track' },
+                      h('div', {
+                        className: 'bar-fill',
+                        style: { height: (mounted ? Math.max(r.pct, 3) : 0) + '%' }
+                      },
+                        h('span', { className: 'bar-val' }, r.pct + '%')
+                      )
+                    ),
+                    h('div', { className: 'bar-lbl', title: r.name }, r.name)
+                  );
+                })
+              )
             ),
-            perRows.map(function (r, i) {
-              return h('div', { className: 'trow', key: i },
-                h('div', { className: 'name' }, r.name),
-                h('div', { className: 'n' }, r.sessions),
-                h('div', { className: 'n' }, r.seen),
-                h('div', { className: 'n hl' }, pct(r.correct, r.seen) + '%')
-              );
-            })
+            // Sağ: deste listesi (seans/görülen/%)
+            h('div', { className: 'stats-list-card' },
+              h('div', { className: 'stats-card-head' }, 'Deste kırılımı'),
+              perRows.map(function (r, i) {
+                return h('div', { className: 'sl-row', key: i },
+                  h('div', { className: 'sl-name' }, r.name),
+                  h('div', { className: 'sl-meta' },
+                    h('span', { className: 'sl-sub' }, r.sessions + ' sns · ' + r.seen + ' görü'),
+                    h('span', { className: 'sl-pct' }, r.pct + '%')
+                  )
+                );
+              })
+            )
           ),
       ctxActivity.length > 0
-        ? h('div', null,
-            h('div', { className: 'section-head', style: { marginTop: '22px' } },
-              h('span', { className: 'lbl' }, 'Bağlam Aktivitesi (son 7 gün)')
-            ),
+        ? h('div', { className: 'stats-list-card', style: { marginTop: '16px' } },
+            h('div', { className: 'stats-card-head' }, 'Bağlam Aktivitesi (son 7 gün)'),
             ctxActivity.map(function (a) {
               var w = maxAct > 0 ? Math.round((a.count / maxAct) * 100) : 0;
               return h('div', { className: 'actrow', key: a.id },
@@ -1042,7 +1070,7 @@
                   h('span', { className: 'actrow-n mono' }, a.count + ' seans')
                 ),
                 h('div', { className: 'actbar' },
-                  h('div', { className: 'actbar-fill', style: { width: Math.max(w, 4) + '%' } })
+                  h('div', { className: 'actbar-fill', style: { width: (mounted ? Math.max(w, 4) : 0) + '%' } })
                 )
               );
             })

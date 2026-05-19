@@ -660,6 +660,7 @@
     ];
 
     return h('div', { className: 'onb-backdrop', role: 'dialog', 'aria-modal': 'true' },
+      h('div', { className: 'aurora-bg onb-aurora', 'aria-hidden': 'true' }),
       h('div', { className: 'onb-card' },
         skip,
         screens[step],
@@ -1249,6 +1250,7 @@
     var reasonText = top.reasons.map(function (r) { return reasonLabel(r, ctx); }).join(' · ');
 
     return h('div', { className: 'banner' },
+      h('div', { className: 'aurora-bg', 'aria-hidden': 'true' }),
       h('button', {
         className: 'banner-x', 'aria-label': 'Kapat',
         onClick: function () { props.onDismiss(ctx.id); }

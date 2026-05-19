@@ -1438,3 +1438,161 @@ button { cursor: pointer; border: none; background: none; }
   font-weight: 600;
   color: var(--ink-soft);
 }
+
+/* === Sprint 6: Marketplace === */
+
+.mp-intro {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.mp-offline {
+  background: var(--paper-sunk);
+  color: var(--ink-faint);
+  font-size: 13px;
+  border-radius: var(--r-md);
+  padding: 9px 12px;
+  margin-bottom: 12px;
+}
+.mp-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.mp-select {
+  flex: 1;
+  min-width: 130px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+.mp-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Deste kartı — .deck dili */
+.mp-card {
+  background: var(--paper-card);
+  border-radius: var(--r-lg);
+  padding: 16px 16px 14px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-card);
+  border-left: 3px solid var(--accent-soft);
+}
+.mp-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.mp-emoji { font-size: 28px; line-height: 1; }
+.mp-name {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 600;
+}
+.mp-meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+.mp-desc {
+  font-size: 14px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.mp-prev {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.mp-thumb {
+  width: 60px;
+  height: 60px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  background: var(--paper-sunk);
+}
+.mp-thumb-ph {
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+}
+.mp-dl-btn { width: 100%; }
+.mp-dl { margin-top: 4px; }
+/* İlerleme — .progress-track dili (Sprint 3) */
+.mp-dl-bar {
+  height: 8px;
+  background: var(--paper-sunk);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.mp-dl-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width .2s ease;
+}
+.mp-dl-txt {
+  font-size: 12px;
+  color: var(--ink-faint);
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+/* Çalışma kartı zengin alanlar */
+.face-img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: var(--r-md);
+  margin-bottom: 12px;
+}
+.face-pron {
+  font-style: italic;
+  font-size: 15px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+.face-ex {
+  font-style: italic;
+  font-size: 15px;
+  color: var(--ink-soft);
+  margin-top: 12px;
+  line-height: 1.5;
+}
+.face-ex-tr {
+  font-size: 13px;
+  color: var(--ink-faint);
+  margin-top: 4px;
+}
+
+/* Kart editörü görsel önizleme */
+.cm-img-prev {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cm-img-prev img {
+  max-width: 100px;
+  max-height: 100px;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+}
+
+@media (max-width: 360px) {
+  .mp-filters { flex-direction: column; }
+  .mp-select { width: 100%; }
+}

@@ -3,7 +3,9 @@
    App shell cache-first + çevrimdışı yedek
    ============================================================ */
 
-var CACHE = 'flashcards-v9';
+var CACHE = 'flashcards-v10';
+// Sprint 6: indirilen marketplace görselleri (çevrimdışı çalışsın)
+var MP_IMG = 'flashcards-mp-images-v1';
 
 // Göreli yollar — GitHub Pages alt-dizininde de çalışır.
 var APP_SHELL = [
@@ -35,7 +37,8 @@ self.addEventListener('activate', function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
       return Promise.all(keys.map(function (k) {
-        if (k !== CACHE) return caches.delete(k);
+        // MP_IMG korunur — indirilen görseller silinmesin
+        if (k !== CACHE && k !== MP_IMG) return caches.delete(k);
       }));
     }).then(function () { return self.clients.claim(); })
   );
@@ -47,6 +50,27 @@ self.addEventListener('fetch', function (event) {
 
   var url = new URL(req.url);
   var sameOrigin = url.origin === self.location.origin;
+
+  // Sprint 6: marketplace görselleri — cache-first (çevrimdışı çalışır).
+  // githubusercontent.com üzerindeki /images/ yolları.
+  if (!sameOrigin &&
+      url.hostname.indexOf('githubusercontent.com') >= 0 &&
+      url.pathname.indexOf('/images/') >= 0) {
+    event.respondWith(
+      caches.open(MP_IMG).then(function (cache) {
+        return cache.match(req).then(function (cached) {
+          if (cached) return cached;
+          return fetch(req).then(function (res) {
+            if (res && (res.status === 200 || res.type === 'opaque')) {
+              cache.put(req, res.clone());
+            }
+            return res;
+          });
+        });
+      })
+    );
+    return;
+  }
 
   if (sameOrigin) {
     // App shell: cache-first, ağ varsa arkada güncelle (stale-while-revalidate)

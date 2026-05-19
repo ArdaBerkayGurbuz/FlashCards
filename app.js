@@ -24,6 +24,19 @@
   var THEME_KEY = 'flashcards.theme';
   var ONBOARDED_KEY = 'flashcards.onboarded.v1';
   var CATCHUP_KEY = 'flashcards.catchupEnabled';
+  // Sprint 6: marketplace
+  var MARKETPLACE_DEFAULT_URL = 'https://raw.githubusercontent.com/ArdaBerkayGurbuz/flashcards-content/main/decks/';
+  var MARKETPLACE_URL_KEY = 'flashcards.marketplace.url';
+  var MARKETPLACE_CACHE_KEY = 'flashcards.marketplace.v1';
+  var MARKETPLACE_TTL = 3600000; // 1 saat
+
+  function marketplaceBaseUrl() {
+    try {
+      var u = localStorage.getItem(MARKETPLACE_URL_KEY);
+      if (u && /^https?:\/\//.test(u)) return u.charAt(u.length - 1) === '/' ? u : u + '/';
+    } catch (e) {}
+    return MARKETPLACE_DEFAULT_URL;
+  }
 
   // Tema: kayıtlı seçim varsa onu, yoksa cihaz tercihini kullan
   function getInitialTheme() {
@@ -90,6 +103,95 @@
     return result;
   }
 
+  /* ===== Sprint 6: Marketplace ağ katmanı (saf, modül seviyesi) ===== */
+
+  // Promise + AbortController timeout. Hata → reject (App kullanıcı
+  // dostu mesaja çevirir). Repo henüz yoksa burası reddeder, graceful.
+  function fetchJSON(url, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      if (typeof fetch !== 'function') {
+        reject(new Error('FETCH_UNSUPPORTED')); return;
+      }
+      var ctrl = null, timer = null;
+      try { ctrl = new AbortController(); } catch (e) { ctrl = null; }
+      if (ctrl) {
+        timer = setTimeout(function () {
+          try { ctrl.abort(); } catch (e) {}
+        }, timeoutMs || 30000);
+      }
+      fetch(url, ctrl ? { signal: ctrl.signal } : {}).then(function (res) {
+        if (timer) clearTimeout(timer);
+        if (!res.ok) {
+          reject(new Error(res.status === 403 ? 'RATE_LIMIT' : 'HTTP_' + res.status));
+          return;
+        }
+        return res.json();
+      }).then(function (data) {
+        if (data !== undefined) resolve(data);
+      }).catch(function (err) {
+        if (timer) clearTimeout(timer);
+        reject(err && err.name === 'AbortError' ? new Error('TIMEOUT') : err);
+      });
+    });
+  }
+
+  function validateManifest(obj) {
+    if (!obj || typeof obj !== 'object' || !Array.isArray(obj.decks)) return null;
+    var decks = obj.decks.filter(function (d) {
+      return d && typeof d === 'object' &&
+        typeof d.id === 'string' && typeof d.name === 'string' &&
+        typeof d.url === 'string';
+    });
+    return decks.length ? { version: obj.version || 1, decks: decks } : null;
+  }
+
+  function validateDeckJSON(obj) {
+    if (!obj || typeof obj !== 'object' || !Array.isArray(obj.cards)) return null;
+    var cards = obj.cards.filter(function (c) {
+      return c && typeof c === 'object' &&
+        c.front != null && c.back != null;
+    });
+    if (!cards.length) return null;
+    return {
+      id: typeof obj.id === 'string' ? obj.id : ('mp_' + uid()),
+      name: typeof obj.name === 'string' && obj.name.trim() ? obj.name : 'İndirilen Deste',
+      imageBaseUrl: typeof obj.imageBaseUrl === 'string' ? obj.imageBaseUrl : '',
+      suggestedContext: (obj.suggestedContext && typeof obj.suggestedContext === 'object')
+        ? obj.suggestedContext : null,
+      cards: cards
+    };
+  }
+
+  // Manifest cache: { ts, data }. force=true → ağdan zorla.
+  // Dönüş: { data, stale } | reject (cache yok + ağ hatası).
+  function loadMarketplaceManifest(force) {
+    var cached = null;
+    try {
+      var raw = localStorage.getItem(MARKETPLACE_CACHE_KEY);
+      if (raw) cached = JSON.parse(raw);
+    } catch (e) { cached = null; }
+    var fresh = cached && cached.ts &&
+      (Date.now() - cached.ts < MARKETPLACE_TTL) && cached.data;
+    if (!force && fresh) {
+      return Promise.resolve({ data: cached.data, stale: false });
+    }
+    return fetchJSON(marketplaceBaseUrl() + 'manifest.json', 15000)
+      .then(function (json) {
+        var v = validateManifest(json);
+        if (!v) throw new Error('BAD_MANIFEST');
+        try {
+          localStorage.setItem(MARKETPLACE_CACHE_KEY,
+            JSON.stringify({ ts: Date.now(), data: v }));
+        } catch (e) {}
+        return { data: v, stale: false };
+      })
+      .catch(function (err) {
+        // Ağ/parse hatası: eski cache varsa onu döndür (çevrimdışı)
+        if (cached && cached.data) return { data: cached.data, stale: true };
+        throw err;
+      });
+  }
+
   function emptyState() {
     return {
       version: 1,
@@ -119,12 +221,22 @@
           cards: Array.isArray(d.cards) ? d.cards
             .filter(function (c) { return c && typeof c === 'object'; })
             .map(function (c) {
-              return {
+              var card = {
                 id: typeof c.id === 'string' ? c.id : uid(),
                 q: String(c.q == null ? '' : c.q),
                 a: String(c.a == null ? '' : c.a),
                 createdAt: c.createdAt || Date.now()
               };
+              // Sprint 6: opsiyonel zengin alanlar — yalnız doluysa yaz
+              if (typeof c.pronunciation === 'string' && c.pronunciation)
+                card.pronunciation = c.pronunciation;
+              if (typeof c.example === 'string' && c.example)
+                card.example = c.example;
+              if (typeof c.exampleTranslation === 'string' && c.exampleTranslation)
+                card.exampleTranslation = c.exampleTranslation;
+              if (typeof c.image === 'string' && c.image)
+                card.image = c.image;
+              return card;
             }) : []
         };
       });
@@ -759,12 +871,28 @@
         h('div', { className: 'flashcard' + (s.flipped ? ' flipped' : ''), role: 'button', 'aria-label': 'Kartı çevir' },
           h('div', { className: 'face front' },
             h('div', { className: 'tag' }, 'SORU'),
+            (card && card.image)
+              ? h('img', {
+                  className: 'face-img', src: card.image, alt: '',
+                  loading: 'lazy',
+                  onError: function (e) { e.target.style.display = 'none'; }
+                })
+              : null,
             h('div', { className: 'text' }, card ? card.q : ''),
+            (card && card.pronunciation)
+              ? h('div', { className: 'face-pron' }, card.pronunciation)
+              : null,
             h('div', { className: 'hint' }, 'Cevabı görmek için dokun')
           ),
           h('div', { className: 'face back' },
             h('div', { className: 'tag' }, 'CEVAP'),
-            h('div', { className: 'text' }, card ? card.a : '')
+            h('div', { className: 'text' }, card ? card.a : ''),
+            (card && card.example)
+              ? h('div', { className: 'face-ex' }, '“' + card.example + '”')
+              : null,
+            (card && card.exampleTranslation)
+              ? h('div', { className: 'face-ex-tr' }, card.exampleTranslation)
+              : null
           )
         )
       ),
@@ -877,6 +1005,71 @@
 
   // ---------- Veri ekranı (JSON dışa/içe) ----------
 
+  // ---------- Sprint 6: Gelişmiş + Depolama (marketplace) ----------
+  function MarketplaceSettings() {
+    var urlH = useState(function () {
+      try { return localStorage.getItem(MARKETPLACE_URL_KEY) || ''; }
+      catch (e) { return ''; }
+    });
+    var url = urlH[0], setUrl = urlH[1];
+    var imgCntH = useState(null);
+    var imgCnt = imgCntH[0], setImgCnt = imgCntH[1];
+    var msgH = useState('');
+    var msg = msgH[0], setMsg = msgH[1];
+
+    function calcImages() {
+      if (!('caches' in window)) { setImgCnt('—'); return; }
+      caches.open('flashcards-mp-images-v1').then(function (c) {
+        return c.keys();
+      }).then(function (keys) {
+        setImgCnt(keys.length);
+      }).catch(function () { setImgCnt('—'); });
+    }
+    useEffect(function () { calcImages(); }, []);
+
+    function saveUrl() {
+      try {
+        if (url && /^https?:\/\//.test(url)) {
+          localStorage.setItem(MARKETPLACE_URL_KEY, url);
+        } else {
+          localStorage.removeItem(MARKETPLACE_URL_KEY);
+        }
+        localStorage.removeItem(MARKETPLACE_CACHE_KEY);
+        setMsg('Kaydedildi — Keşfet sekmesinde yenile');
+      } catch (e) { setMsg('Kaydedilemedi'); }
+    }
+    function clearImgCache() {
+      if (!('caches' in window)) return;
+      caches.delete('flashcards-mp-images-v1').then(function () {
+        setMsg('Görsel cache temizlendi'); calcImages();
+      });
+    }
+
+    return h('div', null,
+      h('div', { className: 'panel' },
+        h('h3', null, 'Gelişmiş'),
+        h('p', null, 'Hazır deste kaynağı (boş bırakırsan varsayılan kullanılır):'),
+        h('div', { className: 'field' },
+          h('input', {
+            type: 'text', value: url,
+            placeholder: MARKETPLACE_DEFAULT_URL,
+            onChange: function (e) { setUrl(e.target.value); }
+          })
+        ),
+        h('button', { className: 'btn ghost', onClick: saveUrl },
+          'Kaydet ve cache temizle'),
+        msg ? h('p', { className: 'mono', style: { fontSize: '12px', color: 'var(--ink-faint)', marginTop: '8px' } }, msg) : null
+      ),
+      h('div', { className: 'panel' },
+        h('h3', null, 'Depolama'),
+        h('p', null, 'Marketplace görselleri (önbellek): ' +
+          (imgCnt === null ? '…' : imgCnt) + (typeof imgCnt === 'number' ? ' dosya' : '')),
+        h('button', { className: 'btn ghost', onClick: clearImgCache },
+          'Görsel cache’ini temizle')
+      )
+    );
+  }
+
   function DataView(props) {
     var fileRef = useRef(null);
 
@@ -972,6 +1165,8 @@
           }, h('span', { className: 'toggle-knob' }))
         )
       ),
+      // Sprint 6: Gelişmiş (marketplace URL)
+      h(MarketplaceSettings, null),
       // Gizlilik
       h('div', { className: 'panel' },
         h('h3', null, 'Gizlilik'),
@@ -1073,6 +1268,134 @@
         ? h('button', { className: 'linkbtn banner-more', onClick: props.onSeeAll },
             '+' + (matches.length - 1) + ' bağlam daha aktif — tümünü gör')
         : null
+    );
+  }
+
+  // ---------- Sprint 6: Keşfet (marketplace) ekranı ----------
+
+  function DiscoverView(props) {
+    var status = props.status;       // loading|ready|error|offline
+    var manifest = props.manifest;   // {decks:[...]} | null
+    var dl = props.dl;               // {deckId,pct} | null
+    var langH = useState('all');
+    var lang = langH[0], setLang = langH[1];
+    var lvlH = useState('all');
+    var lvl = lvlH[0], setLvl = lvlH[1];
+
+    if (status === 'loading') {
+      return h('div', { className: 'empty' },
+        h('div', { className: 'big' }, 'Desteler yükleniyor…'),
+        h('div', { className: 'spin', style: { fontSize: '24px', marginTop: '12px' } }, '🔄')
+      );
+    }
+    if (status === 'error' || !manifest) {
+      return h('div', { className: 'empty' },
+        h('div', { className: 'big' }, 'Desteler yüklenemedi'),
+        h('p', null, 'İnternet bağlantını kontrol et veya biraz sonra tekrar dene.'),
+        h('button', { className: 'btn primary lg', onClick: props.onReload }, '↻  Yeniden dene')
+      );
+    }
+
+    var decks = manifest.decks || [];
+    // Filtre seçeneklerini manifest'ten dinamik çıkar
+    var langs = {}, levels = {};
+    decks.forEach(function (d) {
+      if (d.language && d.language.to) langs[d.language.to] = true;
+      if (d.level) levels[d.level] = true;
+    });
+    var langOpts = Object.keys(langs).sort();
+    var lvlOpts = Object.keys(levels).sort();
+
+    var filtered = decks.filter(function (d) {
+      if (lang !== 'all' && (!d.language || d.language.to !== lang)) return false;
+      if (lvl !== 'all' && d.level !== lvl) return false;
+      return true;
+    });
+
+    function langLabel(code) {
+      var m = { en: '🇬🇧 İngilizce', de: '🇩🇪 Almanca', fr: '🇫🇷 Fransızca',
+                es: '🇪🇸 İspanyolca', it: '🇮🇹 İtalyanca' };
+      return m[code] || code;
+    }
+
+    return h('div', null,
+      status === 'offline'
+        ? h('div', { className: 'mp-offline' },
+            '⚠ Çevrimdışı — kayıtlı liste gösteriliyor')
+        : null,
+      h('p', { className: 'mp-intro' },
+        'Hazır flashcard desteleri. İndirdiğin desteler kendi destelerine eklenir.'),
+      (langOpts.length > 1 || lvlOpts.length > 0)
+        ? h('div', { className: 'mp-filters' },
+            langOpts.length > 1
+              ? h('select', {
+                  className: 'mp-select', value: lang,
+                  onChange: function (e) { setLang(e.target.value); },
+                  'aria-label': 'Dil filtresi'
+                },
+                  h('option', { value: 'all' }, 'Tüm diller'),
+                  langOpts.map(function (c) {
+                    return h('option', { key: c, value: c }, langLabel(c));
+                  }))
+              : null,
+            lvlOpts.length > 0
+              ? h('select', {
+                  className: 'mp-select', value: lvl,
+                  onChange: function (e) { setLvl(e.target.value); },
+                  'aria-label': 'Seviye filtresi'
+                },
+                  h('option', { value: 'all' }, 'Tüm seviyeler'),
+                  lvlOpts.map(function (l) {
+                    return h('option', { key: l, value: l }, l);
+                  }))
+              : null
+          )
+        : null,
+      filtered.length === 0
+        ? h('div', { className: 'empty' },
+            h('p', null, 'Bu filtreye uygun deste yok.'))
+        : filtered.map(function (d) {
+            var busy = dl && dl.deckId === d.id;
+            var langTxt = d.language
+              ? ((d.language.from || '') + ' → ' + (d.language.to || '')) : '';
+            return h('div', { className: 'mp-card', key: d.id },
+              h('div', { className: 'mp-head' },
+                h('span', { className: 'mp-emoji' }, d.icon || '📚'),
+                h('span', { className: 'mp-name' }, d.name)
+              ),
+              h('div', { className: 'mp-meta' },
+                (d.cardCount || (d.previewCards ? d.previewCards.length : '?')) +
+                ' kart' + (d.level ? ' · ' + d.level : '') +
+                (langTxt ? ' · ' + langTxt : '')),
+              d.description
+                ? h('div', { className: 'mp-desc' }, d.description) : null,
+              Array.isArray(d.previewCards) && d.previewCards.length
+                ? h('div', { className: 'mp-prev' },
+                    d.previewCards.slice(0, 4).map(function (pc, i) {
+                      return pc.image
+                        ? h('img', {
+                            key: i, className: 'mp-thumb', loading: 'lazy',
+                            src: (d.imageBaseUrl || '') + pc.image, alt: pc.front || '',
+                            onError: function (e) {
+                              e.target.style.display = 'none';
+                            }
+                          })
+                        : h('div', { key: i, className: 'mp-thumb mp-thumb-ph' }, '🖼️');
+                    }))
+                : null,
+              busy
+                ? h('div', { className: 'mp-dl' },
+                    h('div', { className: 'mp-dl-bar' },
+                      h('div', { className: 'mp-dl-fill', style: { width: (dl.pct || 0) + '%' } })),
+                    h('div', { className: 'mp-dl-txt' }, 'İndiriliyor… %' + (dl.pct || 0))
+                  )
+                : h('button', {
+                    className: 'btn primary mp-dl-btn',
+                    disabled: !!dl,
+                    onClick: function () { props.onDownload(d); }
+                  }, '⤓  İndir')
+            );
+          })
     );
   }
 
@@ -1520,6 +1843,25 @@
     // bildirim zamanlama timer'ı
     var notifTimerRef = useRef(null);
 
+    // Sprint 6: marketplace
+    var mpStatusHook = useState('idle');   // idle|loading|ready|error|offline
+    var mpStatus = mpStatusHook[0], setMpStatus = mpStatusHook[1];
+    var mpDataHook = useState(null);       // {decks:[...]}
+    var mpData = mpDataHook[0], setMpData = mpDataHook[1];
+    var dlHook = useState(null);           // {deckId,pct} | null
+    var dl = dlHook[0], setDl = dlHook[1];
+    var mpLoadedRef = useRef(false);
+
+    function loadMP(force) {
+      setMpStatus('loading');
+      loadMarketplaceManifest(force).then(function (r) {
+        setMpData(r.data);
+        setMpStatus(r.stale ? 'offline' : 'ready');
+      }).catch(function () {
+        setMpStatus('error');
+      });
+    }
+
     function finishOnboarding() {
       try { localStorage.setItem(ONBOARDED_KEY, '1'); } catch (e) {}
       setOnboarded(true);
@@ -1531,6 +1873,14 @@
 
     // Boot'ta bir kere: kırık (orphan) kart-bağlam linklerini sessizce temizle
     useEffect(function () { cleanupOrphanLinks(); }, []);
+
+    // Sprint 6: Keşfet'e ilk girişte manifest yükle (bir kez)
+    useEffect(function () {
+      if (route.name === 'discover' && !mpLoadedRef.current) {
+        mpLoadedRef.current = true;
+        loadMP(false);
+      }
+    }, [route.name]);
 
     // Sprint 4: deep-link (?action=study&contextId=) — boot'ta bir kere
     useEffect(function () {
@@ -1855,11 +2205,24 @@
 
     // ----- Kart işlemleri -----
     // contextIds: opsiyonel — kart kaydedilince bağlam linki yazılır
-    function addCard(deckId, q, a, contextIds) {
+    // Sprint 6: kart objesine zengin alanları uygula (yalnız dolu)
+    function applyCardExtra(card, extra) {
+      var keys = ['pronunciation', 'example', 'exampleTranslation', 'image'];
+      keys.forEach(function (k) {
+        if (extra && typeof extra[k] === 'string' && extra[k]) card[k] = extra[k];
+        else delete card[k];
+      });
+    }
+
+    function addCard(deckId, q, a, contextIds, extra) {
       var newId = uid();
       update(function (n) {
         n.decks.forEach(function (d) {
-          if (d.id === deckId) d.cards.push({ id: newId, q: q, a: a, createdAt: Date.now() });
+          if (d.id === deckId) {
+            var card = { id: newId, q: q, a: a, createdAt: Date.now() };
+            applyCardExtra(card, extra);
+            d.cards.push(card);
+          }
         });
       });
       if (contextIds) setCardContexts(cardKey(deckId, newId), contextIds);
@@ -1895,11 +2258,14 @@
       setModal(null);
       showToast(cards.length + ' kart eklendi');
     }
-    function editCard(deckId, cardId, q, a, contextIds) {
+    function editCard(deckId, cardId, q, a, contextIds, extra) {
       update(function (n) {
         n.decks.forEach(function (d) {
           if (d.id === deckId) d.cards.forEach(function (c) {
-            if (c.id === cardId) { c.q = q; c.a = a; }
+            if (c.id === cardId) {
+              c.q = q; c.a = a;
+              applyCardExtra(c, extra);
+            }
           });
         });
       });
@@ -1986,6 +2352,121 @@
         sessionKey: uid(),
         ctxStudy: { ctxId: ctx.id, name: ctx.name, emoji: ctx.emoji, cards: cards }
       });
+    }
+
+    /* ===== Sprint 6: marketplace deste indirme ===== */
+
+    function commitDownloadedDeck(deckJson, meta) {
+      var now = Date.now();
+      var newDeckId = uid();
+      var imgBase = deckJson.imageBaseUrl || '';
+      var newIds = [];
+      var cards = deckJson.cards.map(function (c) {
+        var id = uid();
+        newIds.push(id);
+        var card = {
+          id: id, q: String(c.front), a: String(c.back), createdAt: now
+        };
+        if (typeof c.pronunciation === 'string' && c.pronunciation)
+          card.pronunciation = c.pronunciation;
+        if (typeof c.example === 'string' && c.example)
+          card.example = c.example;
+        if (typeof c.exampleTranslation === 'string' && c.exampleTranslation)
+          card.exampleTranslation = c.exampleTranslation;
+        if (typeof c.image === 'string' && c.image)
+          card.image = imgBase + c.image; // mutlak URL — SW cache'ler
+        return card;
+      });
+      update(function (n) {
+        n.decks.unshift({
+          id: newDeckId, name: deckJson.name,
+          createdAt: now, lastStudied: null,
+          source: 'marketplace:' + (meta.id || deckJson.id || ''),
+          cards: cards
+        });
+      });
+      setDl(null);
+      // Bağlam önerisi varsa modal aç, yoksa bitir
+      var sc = deckJson.suggestedContext;
+      if (sc && sc.name) {
+        setModal({
+          type: 'mpContext', ctxName: sc.name,
+          ctxEmoji: sc.emoji || '📍', deckId: newDeckId, cardIds: newIds,
+          deckName: deckJson.name
+        });
+      } else {
+        showToast(cards.length + ' kart eklendi');
+        setRoute({ name: 'detail', deckId: newDeckId });
+      }
+    }
+
+    function reallyDownload(meta) {
+      setDl({ deckId: meta.id, pct: 0 });
+      fetchJSON(marketplaceBaseUrl() + meta.url, 30000).then(function (json) {
+        var dj = validateDeckJSON(json);
+        if (!dj) { setDl(null); showToast('Deste dosyası bozuk'); return; }
+        if (dj.cards.length > 500) {
+          // çok büyük — yine de devam (kullanıcı zaten İndir'e bastı)
+        }
+        var imgs = [];
+        dj.cards.forEach(function (c) {
+          if (c.image) imgs.push((dj.imageBaseUrl || '') + c.image);
+        });
+        if (imgs.length === 0) { commitDownloadedDeck(dj, meta); return; }
+        // Görselleri best-effort ısıt (SW cache doldur); hata → atla
+        var done = 0;
+        function step() {
+          done++;
+          setDl({ deckId: meta.id, pct: Math.round((done / imgs.length) * 100) });
+          if (done >= imgs.length) commitDownloadedDeck(dj, meta);
+        }
+        imgs.forEach(function (u) {
+          (typeof fetch === 'function'
+            ? fetch(u).then(function () {}, function () {})
+            : Promise.resolve()
+          ).then(step, step);
+        });
+      }).catch(function (err) {
+        setDl(null);
+        var m = err && err.message;
+        showToast(
+          m === 'TIMEOUT' ? 'İndirme zaman aşımına uğradı'
+          : m === 'RATE_LIMIT' ? 'GitHub sınırı — biraz sonra dene'
+          : 'Deste indirilemedi');
+      });
+    }
+
+    function downloadMarketplaceDeck(meta) {
+      // Aynı kaynaktan daha önce indirilmiş mi?
+      var srcTag = 'marketplace:' + meta.id;
+      var exists = state.decks.some(function (d) { return d.source === srcTag; });
+      if (exists) {
+        setModal({
+          type: 'confirm',
+          title: 'Zaten indirildi',
+          message: '“' + meta.name + '” destesini daha önce indirdin. Yeni bir kopya olarak ekleyelim mi?',
+          confirmLabel: 'Yeni kopya',
+          onConfirm: function () { setModal(null); reallyDownload(meta); }
+        });
+        return;
+      }
+      reallyDownload(meta);
+    }
+
+    function applyMpContext(modalData) {
+      var newCtxId = createContext({
+        name: modalData.ctxName, emoji: modalData.ctxEmoji
+      });
+      if (newCtxId && modalData.cardIds && modalData.cardIds.length) {
+        updateCtx(function (n) {
+          modalData.cardIds.forEach(function (cid) {
+            n.cardContextLinks[cardKey(modalData.deckId, cid)] = [newCtxId];
+          });
+        });
+      }
+      setModal(null);
+      showToast('Bağlam oluşturuldu');
+      setRoute({ name: 'detail', deckId: modalData.deckId });
     }
 
     /* ===== Sprint 4: örnek deste, bildirim, catch-up ===== */
@@ -2176,6 +2657,12 @@
           title: isAdd ? 'Yeni kart' : 'Kartı düzenle',
           initialQ: isAdd ? '' : modal.card.q,
           initialA: isAdd ? '' : modal.card.a,
+          initialExtra: isAdd ? null : {
+            pronunciation: modal.card.pronunciation,
+            example: modal.card.example,
+            exampleTranslation: modal.card.exampleTranslation,
+            image: modal.card.image
+          },
           availableContexts: ctxState.contexts,
           initialContextIds: initialCtxIds,
           onGoToContexts: function () {
@@ -2183,9 +2670,9 @@
             setRoute({ name: 'contexts' });
           },
           onClose: function () { setModal(null); },
-          onSubmit: function (q, a, ctxIds) {
-            if (isAdd) addCard(modal.deckId, q, a, ctxIds);
-            else editCard(modal.deckId, modal.card.id, q, a, ctxIds);
+          onSubmit: function (q, a, ctxIds, extra) {
+            if (isAdd) addCard(modal.deckId, q, a, ctxIds, extra);
+            else editCard(modal.deckId, modal.card.id, q, a, ctxIds, extra);
           },
           // Toplu Ekle yalnız yeni kart modunda (düzenlemede anlamsız)
           onBulkSubmit: isAdd
@@ -2200,6 +2687,30 @@
           h('div', { className: 'modal-actions' },
             h('button', { className: 'btn ghost', onClick: function () { setModal(null); } }, 'Vazgeç'),
             h('button', { className: 'btn primary', onClick: modal.onConfirm }, modal.confirmLabel || 'Sil')
+          )
+        );
+      }
+
+      // Sprint 6: indirilen deste için bağlam önerisi
+      if (modal.type === 'mpContext') {
+        function closeMp() {
+          setModal(null);
+          showToast('Kartlar eklendi');
+          setRoute({ name: 'detail', deckId: modal.deckId });
+        }
+        return h(Modal, { title: 'Bağlam önerisi', onClose: closeMp },
+          h('p', { className: 'confirm-text' },
+            modal.ctxEmoji + ' Bu desteyi “' + modal.ctxName +
+            '” bağlamına bağlayalım mı? O bağlamdayken bu kartlar öne çıkar.'),
+          h('div', { className: 'modal-actions', style: { flexDirection: 'column' } },
+            h('button', { className: 'btn primary full',
+              onClick: function () { applyMpContext(modal); } },
+              'Evet, otomatik bağlam oluştur'),
+            h('button', { className: 'btn ghost full',
+              onClick: closeMp }, 'Hayır, bağlam olmasın'),
+            h('button', { className: 'linkbtn',
+              onClick: function () { setModal(null); setRoute({ name: 'contexts' }); } },
+              'Manuel ayarlayacağım')
           )
         );
       }
@@ -2395,6 +2906,15 @@
           setModal({ type: 'import' });
         }
       });
+    } else if (route.name === 'discover') {
+      title = 'Keşfet';
+      body = h(DiscoverView, {
+        status: mpStatus,
+        manifest: mpData,
+        dl: dl,
+        onReload: function () { loadMP(true); },
+        onDownload: function (meta) { downloadMarketplaceDeck(meta); }
+      });
     } else if (route.name === 'contexts') {
       title = 'Bağlamlar';
       // Her bağlam için kart sayısı — tek geçişte (geçerli kart linkleri)
@@ -2514,6 +3034,7 @@
       h('div', { className: 'content' }, body),
       h('div', { className: 'tabs' },
         Tab('list', '▤', 'Desteler'),
+        Tab('discover', '🌟', 'Keşfet'),
         Tab('contexts', '📍', 'Bağlamlar'),
         Tab('stats', '◷', 'İstatistik'),
         Tab('data', '⇅', 'Veri')
@@ -2704,8 +3225,28 @@
     var sel = selH[0], setSel = selH[1];
     var tabH = useState('single'); // 'single' | 'bulk' (kaydedilmez)
     var tab = tabH[0], setTab = tabH[1];
+    // Sprint 6: zengin alanlar (düzenlemede initialExtra ile dolu)
+    var ex = props.initialExtra || {};
+    var pronH = useState(ex.pronunciation || '');
+    var pron = pronH[0], setPron = pronH[1];
+    var exmH = useState(ex.example || '');
+    var exm = exmH[0], setExm = exmH[1];
+    var exTrH = useState(ex.exampleTranslation || '');
+    var exTr = exTrH[0], setExTr = exTrH[1];
+    var imgH = useState(ex.image || '');
+    var img = imgH[0], setImg = imgH[1];
     var qRef = useRef(null);
+    var fileRef = useRef(null);
     useEffect(function () { if (qRef.current) qRef.current.focus(); }, []);
+
+    function onPickImage(e) {
+      var f = e.target.files && e.target.files[0];
+      if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function () { setImg(String(rd.result)); };
+      rd.readAsDataURL(f); // hata → görsel boş kalır (sessiz)
+      e.target.value = '';
+    }
 
     var contexts = props.availableContexts || [];
     var allowBulk = !!props.onBulkSubmit; // yalnız yeni kart (addCard) modunda
@@ -2720,7 +3261,12 @@
 
     function submit() {
       if (!q.trim() && !a.trim()) { if (qRef.current) qRef.current.focus(); return; }
-      props.onSubmit(q.trim(), a.trim(), sel.slice());
+      var extra = {};
+      if (pron.trim()) extra.pronunciation = pron.trim();
+      if (exm.trim()) extra.example = exm.trim();
+      if (exTr.trim()) extra.exampleTranslation = exTr.trim();
+      if (img) extra.image = img;
+      props.onSubmit(q.trim(), a.trim(), sel.slice(), extra);
     }
 
     // Toplu Ekle sekmesi (yalnız yeni kart modunda)
@@ -2768,6 +3314,47 @@
           value: a, placeholder: 'Cevabı yazın…',
           onChange: function (e) { setA(e.target.value); }
         })
+      ),
+      // Sprint 6: zengin alanlar (hepsi opsiyonel)
+      h('div', { className: 'field' },
+        h('label', null, 'Telaffuz (opsiyonel)'),
+        h('input', {
+          type: 'text', value: pron, placeholder: '/ˈmen.juː/',
+          onChange: function (e) { setPron(e.target.value); }
+        })
+      ),
+      h('div', { className: 'field' },
+        h('label', null, 'Örnek cümle (opsiyonel)'),
+        h('textarea', {
+          value: exm, placeholder: 'The menu is on the table.',
+          onChange: function (e) { setExm(e.target.value); }
+        })
+      ),
+      h('div', { className: 'field' },
+        h('label', null, 'Örnek çevirisi (opsiyonel)'),
+        h('input', {
+          type: 'text', value: exTr, placeholder: 'Menü masanın üzerinde.',
+          onChange: function (e) { setExTr(e.target.value); }
+        })
+      ),
+      h('div', { className: 'field' },
+        h('label', null, 'Görsel (opsiyonel)'),
+        img
+          ? h('div', { className: 'cm-img-prev' },
+              h('img', { src: img, alt: '' }),
+              h('button', {
+                className: 'linkbtn danger', type: 'button',
+                onClick: function () { setImg(''); }
+              }, 'Kaldır'))
+          : h('div', null,
+              h('input', {
+                type: 'file', accept: 'image/*', ref: fileRef,
+                className: 'hidden-file', onChange: onPickImage
+              }),
+              h('button', {
+                className: 'btn ghost', type: 'button',
+                onClick: function () { fileRef.current && fileRef.current.click(); }
+              }, '🖼️  Görsel ekle'))
       ),
       // Bağlamlar bölümü (Sprint 2)
       h('div', { className: 'field cm-ctx' },

@@ -51,6 +51,45 @@
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
+  /* ===== Sprint 5: Toplu kart metni parse (saf, modül seviyesi) =====
+     Ayraç önceliği: tab en spesifik; boşluklu varyantlar çıplaktan
+     önce gelir ki "21:30 - randevu"da ' - ' yakalansın, ':' (saat)
+     bozulmasın. Çıplak ':' bilinçli YOK (saat çakışmasın). */
+  var BULK_SEPARATORS = ['\t', ' | ', '|', ' - ', ' = ', ' : ', ': '];
+
+  function parseBulkCards(text) {
+    var result = { cards: [], errors: [] };
+    if (!text || !text.trim()) return result;
+    var lines = text.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim(); // \r dahil baş/son boşluk temizlenir
+      if (!line) continue;            // boş satır → atla
+      if (line.charAt(0) === '#') continue; // yorum → atla
+
+      var sep = null, sepIdx = -1;
+      for (var s = 0; s < BULK_SEPARATORS.length; s++) {
+        var idx = line.indexOf(BULK_SEPARATORS[s]);
+        if (idx > 0) { sep = BULK_SEPARATORS[s]; sepIdx = idx; break; }
+      }
+      if (sep === null) {
+        result.errors.push({
+          lineNumber: i + 1, content: line, reason: 'Ayraç bulunamadı'
+        });
+        continue;
+      }
+      var front = line.substring(0, sepIdx).trim();
+      var back = line.substring(sepIdx + sep.length).trim();
+      if (!front || !back) {
+        result.errors.push({
+          lineNumber: i + 1, content: line, reason: 'Soru veya cevap boş'
+        });
+        continue;
+      }
+      result.cards.push({ front: front, back: back });
+    }
+    return result;
+  }
+
   function emptyState() {
     return {
       version: 1,
@@ -1826,6 +1865,36 @@
       if (contextIds) setCardContexts(cardKey(deckId, newId), contextIds);
       setModal(null);
     }
+    // Sprint 5: toplu kart ekleme — tek update + tek updateCtx (tek render)
+    function addBulkCards(deckId, cards, contextIds) {
+      if (!cards || !cards.length) return;
+      var newIds = [];
+      update(function (n) {
+        n.decks.forEach(function (d) {
+          if (d.id !== deckId) return;
+          cards.forEach(function (c) {
+            var id = uid();
+            newIds.push(id);
+            d.cards.push({ id: id, q: c.front, a: c.back, createdAt: Date.now() });
+          });
+        });
+      });
+      // Tüm yeni kartlara aynı bağlam(lar)ı tek updateCtx ile yaz
+      if (contextIds && contextIds.length) {
+        var clean = contextIds.filter(function (v, i, arr) {
+          return typeof v === 'string' && arr.indexOf(v) === i;
+        });
+        if (clean.length) {
+          updateCtx(function (n) {
+            newIds.forEach(function (id) {
+              n.cardContextLinks[cardKey(deckId, id)] = clean.slice();
+            });
+          });
+        }
+      }
+      setModal(null);
+      showToast(cards.length + ' kart eklendi');
+    }
     function editCard(deckId, cardId, q, a, contextIds) {
       update(function (n) {
         n.decks.forEach(function (d) {
@@ -2117,7 +2186,11 @@
           onSubmit: function (q, a, ctxIds) {
             if (isAdd) addCard(modal.deckId, q, a, ctxIds);
             else editCard(modal.deckId, modal.card.id, q, a, ctxIds);
-          }
+          },
+          // Toplu Ekle yalnız yeni kart modunda (düzenlemede anlamsız)
+          onBulkSubmit: isAdd
+            ? function (cards, ctxIds) { addBulkCards(modal.deckId, cards, ctxIds); }
+            : null
         });
       }
 
@@ -2488,6 +2561,139 @@
     );
   }
 
+  // ---------- Sprint 5: Toplu kart ekleme bölümü ----------
+  function BulkAddSection(props) {
+    var txtH = useState('');
+    var txt = txtH[0], setTxt = txtH[1];
+    var revH = useState(false);
+    var rev = revH[0], setRev = revH[1];
+    var selH = useState([]);
+    var sel = selH[0], setSel = selH[1];
+    var showErrH = useState(false);
+    var showErr = showErrH[0], setShowErr = showErrH[1];
+    var expandH = useState(false);
+    var expand = expandH[0], setExpand = expandH[1];
+    var helpH = useState(false);
+    var help = helpH[0], setHelp = helpH[1];
+
+    var contexts = props.availableContexts || [];
+    var parsed = parseBulkCards(txt);
+    var cards = rev
+      ? parsed.cards.map(function (c) { return { front: c.back, back: c.front }; })
+      : parsed.cards;
+    var errs = parsed.errors;
+
+    function toggleCtx(id) {
+      setSel(function (p) {
+        return p.indexOf(id) >= 0
+          ? p.filter(function (x) { return x !== id; })
+          : p.concat([id]);
+      });
+    }
+
+    var previewN = expand ? cards.length : 3;
+    var shown = cards.slice(0, previewN);
+    var moreN = cards.length - shown.length;
+
+    return h('div', null,
+      h('div', { className: 'cm-ctx-sub' },
+        'Her satıra bir kart yaz. Soru ve cevabı şununla ayır: ',
+        h('strong', null, '|'), ' veya ', h('strong', null, '-'),
+        ' veya ', h('strong', null, '='), ' veya ', h('strong', null, ': '),
+        ' veya sekme (Tab). Excel/Sheets’ten doğrudan yapıştırabilirsin.',
+        h('button', {
+          className: 'linkbtn', type: 'button',
+          onClick: function () { setHelp(!help); }, 'aria-label': 'Yardım'
+        }, ' ?')
+      ),
+      help ? h('div', { className: 'bulk-help' },
+        h('div', null, '• Ayraçlar: | , - , = , “: ” , Tab'),
+        h('div', null, '• Excel/Sheets’ten kopyala-yapıştır (Tab) çalışır'),
+        h('div', null, '• Boş satırlar ve # ile başlayan satırlar yoksayılır'),
+        h('div', null, '• “21:30 - randevu” gibi saatlerde diğer ayraç seçilir')
+      ) : null,
+      h('div', { className: 'field' },
+        h('textarea', {
+          className: 'bulk-ta mono', value: txt,
+          placeholder: 'mitokondri | hücrenin enerji üreticisi\nribozom - protein sentezi yapar\ncat: kedi\nhello | merhaba',
+          onChange: function (e) { setTxt(e.target.value); }
+        })
+      ),
+      h('div', { className: 'bulk-status' },
+        cards.length > 0
+          ? h('span', { className: 'bulk-ok' }, '✓ ' + cards.length + ' kart algılandı')
+          : h('span', { className: 'bulk-none' }, '0 kart algılandı, lütfen formatı kontrol et'),
+        errs.length > 0
+          ? h('button', {
+              className: 'linkbtn', type: 'button',
+              onClick: function () { setShowErr(!showErr); }
+            }, '⚠ ' + errs.length + ' satır anlaşılamadı')
+          : null
+      ),
+      (showErr && errs.length > 0)
+        ? h('div', { className: 'bulk-err' },
+            errs.map(function (er, i) {
+              return h('div', { key: i, className: 'bulk-err-row' },
+                'satır ' + er.lineNumber + ': ' + er.content + ' — ' + er.reason);
+            })
+          )
+        : null,
+      cards.length > 200
+        ? h('div', { className: 'bulk-warn' },
+            '200’den fazla kart — eklemek biraz yavaş olabilir.')
+        : null,
+      cards.length > 0
+        ? h('div', null,
+            h('div', { className: 'cm-ctx-sub', style: { marginTop: '6px' } }, 'Önizleme'),
+            shown.map(function (c, i) {
+              return h('div', { className: 'bulk-prev', key: i },
+                h('div', { className: 'bulk-prev-q' }, 'Soru: ' + c.front),
+                h('div', { className: 'bulk-prev-a' }, 'Cevap: ' + c.back)
+              );
+            }),
+            moreN > 0
+              ? h('button', {
+                  className: 'linkbtn', type: 'button',
+                  onClick: function () { setExpand(true); }
+                }, '… ve ' + moreN + ' kart daha')
+              : null
+          )
+        : null,
+      h('div', { className: 'bulk-rev' },
+        h('button', {
+          className: 'toggle-sw' + (rev ? ' on' : ''), type: 'button',
+          role: 'switch', 'aria-checked': rev ? 'true' : 'false',
+          'aria-label': 'Ters çevir',
+          onClick: function () { setRev(!rev); }
+        }, h('span', { className: 'toggle-knob' })),
+        h('span', { className: 'bulk-rev-lbl' }, 'Ters çevir (soru ↔ cevap)')
+      ),
+      contexts.length > 0
+        ? h('div', { className: 'field cm-ctx' },
+            h('label', null, 'Tüm kartlara bağlam ata (opsiyonel)'),
+            h('div', { className: 'chip-row' },
+              contexts.map(function (c) {
+                var on = sel.indexOf(c.id) >= 0;
+                return h('button', {
+                  key: c.id, type: 'button',
+                  className: 'chip' + (on ? ' sel' : ''),
+                  onClick: function () { toggleCtx(c.id); }
+                }, c.emoji + ' ' + c.name);
+              })
+            )
+          )
+        : null,
+      h('div', { className: 'modal-actions' },
+        h('button', { className: 'btn ghost', type: 'button', onClick: props.onClose }, 'İptal'),
+        h('button', {
+          className: 'btn primary', type: 'button',
+          disabled: cards.length === 0,
+          onClick: function () { props.onBulkSubmit(cards.slice(), sel.slice()); }
+        }, cards.length + ' Kartı Ekle')
+      )
+    );
+  }
+
   // ---------- Modal: kart ekle/düzenle ----------
   function CardModal(props) {
     var qh = useState(props.initialQ || '');
@@ -2496,10 +2702,13 @@
     var a = ah[0], setA = ah[1];
     var selH = useState(function () { return (props.initialContextIds || []).slice(); });
     var sel = selH[0], setSel = selH[1];
+    var tabH = useState('single'); // 'single' | 'bulk' (kaydedilmez)
+    var tab = tabH[0], setTab = tabH[1];
     var qRef = useRef(null);
     useEffect(function () { if (qRef.current) qRef.current.focus(); }, []);
 
     var contexts = props.availableContexts || [];
+    var allowBulk = !!props.onBulkSubmit; // yalnız yeni kart (addCard) modunda
 
     function toggleCtx(id) {
       setSel(function (p) {
@@ -2514,7 +2723,38 @@
       props.onSubmit(q.trim(), a.trim(), sel.slice());
     }
 
+    // Toplu Ekle sekmesi (yalnız yeni kart modunda)
+    if (allowBulk && tab === 'bulk') {
+      return h(Modal, { title: props.title, onClose: props.onClose },
+        h('div', { className: 'cm-tabs' },
+          h('button', {
+            className: 'seg', type: 'button',
+            onClick: function () { setTab('single'); }
+          }, 'Tek Kart'),
+          h('button', {
+            className: 'seg active', type: 'button'
+          }, 'Toplu Ekle')
+        ),
+        h(BulkAddSection, {
+          availableContexts: contexts,
+          onBulkSubmit: props.onBulkSubmit,
+          onClose: props.onClose
+        })
+      );
+    }
+
     return h(Modal, { title: props.title, onClose: props.onClose },
+      allowBulk
+        ? h('div', { className: 'cm-tabs' },
+            h('button', {
+              className: 'seg active', type: 'button'
+            }, 'Tek Kart'),
+            h('button', {
+              className: 'seg', type: 'button',
+              onClick: function () { setTab('bulk'); }
+            }, 'Toplu Ekle')
+          )
+        : null,
       h('div', { className: 'field' },
         h('label', null, 'Soru (ön yüz)'),
         h('textarea', {

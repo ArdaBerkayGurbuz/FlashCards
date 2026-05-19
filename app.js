@@ -776,7 +776,9 @@
     var aSt = useState('idle'); // 'idle' | 'leaving' | 'entering'
     var anim = aSt[0], setAnim = aSt[1];
     var animTimer = useRef(null);
-    var LEAVE_MS = 320, ENTER_MS = 340; // CSS .leaving/.entering ile birebir
+    // CSS .leaving=.48s / .entering=.62s. SWAP_MS: çıkış bitmeden
+    // advance+entering tetikle → eski/yeni bindirme (crossfade, boş an yok)
+    var LEAVE_MS = 480, ENTER_MS = 620, SWAP_MS = 300;
 
     function advance(rating) {
       // rating: 'good' | 'maybe' | 'bad'
@@ -814,13 +816,16 @@
     function requestAdvance(rating) {
       if (anim !== 'idle') return; // çift-tık / geçiş ortası kilidi
       setAnim('leaving');
+      // SWAP_MS'te (çıkış bitmeden) advance + entering → eski/yeni
+      // bindirir (crossfade), boş kare olmaz. idle, girişin tam
+      // bitişinde: SWAP_MS + ENTER_MS sonra.
       animTimer.current = setTimeout(function () {
         advance(rating); // mevcut mantık aynen (queue/requeue/done)
         setAnim('entering');
         animTimer.current = setTimeout(function () {
           setAnim('idle');
         }, ENTER_MS);
-      }, LEAVE_MS);
+      }, SWAP_MS);
     }
 
     // Geçiş animasyon timer'ını unmount'ta temizle

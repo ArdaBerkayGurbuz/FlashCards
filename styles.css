@@ -1694,7 +1694,8 @@ button { cursor: pointer; border: none; background: none; }
 
 @keyframes cardLeave {
   from { transform: translateY(0) scale(1);       opacity: 1; }
-  to   { transform: translateY(-46px) scale(.90); opacity: 0; }
+  55%  {                                          opacity: 1; }
+  to   { transform: translateY(-34px) scale(.93); opacity: 0; }
 }
 @keyframes cardEnter {
   from { transform: translateY(40px) scale(.92);  opacity: 0; }
@@ -1709,8 +1710,8 @@ button { cursor: pointer; border: none; background: none; }
   z-index: 2;                  /* yığın katmanlarının üstünde */
   will-change: transform, opacity;
 }
-.card-anim-wrap.leaving  { animation: cardLeave  .32s cubic-bezier(.4,0,.6,1) forwards; }
-.card-anim-wrap.entering { animation: cardEnter  .34s cubic-bezier(.2,.8,.25,1) both; }
+.card-anim-wrap.leaving  { animation: cardLeave  .48s cubic-bezier(.33,0,.5,1) forwards; }
+.card-anim-wrap.entering { animation: cardEnter  .62s cubic-bezier(.22,.7,.25,1) both; }
 
 /* Dekoratif arka katmanlar — .face yüzeyiyle aynı, tema uyumlu */
 .flashcard-stack {

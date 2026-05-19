@@ -1649,3 +1649,35 @@ button { cursor: pointer; border: none; background: none; }
 @media (prefers-reduced-motion: reduce) {
   .aurora-bg { animation: none; }
 }
+
+/* === Düzeltme: görselli kart düzeni ===
+   Sorun: sabit yükseklikli (3:4) + dikey-ortalı .face'te görsel (200px)
+   içeriği taşırıp metni okunmaz yapıyordu. Çözüm: yalnız görselli yüzde
+   üstten dizilim + küçük görsel + metin kart içinde scroll. Görselsiz
+   kart :has eşleşmez → mevcut görünüm aynen (regresyon yok). */
+
+.face:has(.face-img) {
+  justify-content: flex-start;   /* ortalamak yerine üstten diz */
+  padding-top: 40px;             /* üstteki .tag absolute'unun altına */
+  padding-bottom: 38px;          /* alttaki .hint absolute'unun üstüne */
+  overflow: hidden;              /* kart kenarından taşmayı kes */
+}
+.face:has(.face-img) .face-img {
+  max-height: 132px;             /* 200 → 132: içeriğe yer aç */
+  flex: 0 0 auto;                /* küçülme/uzama yok */
+  margin-bottom: 14px;
+}
+.face:has(.face-img) .text {
+  max-height: none;              /* görsel varken %100 sıkıştırması kalksın */
+  flex: 1 1 auto;                /* kalan alanı al */
+  min-height: 0;                 /* flex çocuğunda scroll için ŞART */
+  width: 100%;
+  overflow-y: auto;              /* uzun metin kart İÇİNDE scroll */
+}
+.face:has(.face-img) .face-pron {
+  flex: 0 0 auto;                /* telaffuz sıkışmasın */
+}
+
+@media (max-width: 360px) {
+  .face:has(.face-img) .face-img { max-height: 108px; }
+}

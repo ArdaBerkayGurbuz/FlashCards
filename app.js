@@ -24,6 +24,8 @@
   var THEME_KEY = 'flashcards.theme';
   var ONBOARDED_KEY = 'flashcards.onboarded.v1';
   var CATCHUP_KEY = 'flashcards.catchupEnabled';
+  // Sprint 7: retention (streak, günlük hedef, hatırlatma)
+  var RETENTION_KEY = 'flashcards.retention.v1';
   // Sprint 6: marketplace
   var MARKETPLACE_DEFAULT_URL = 'https://raw.githubusercontent.com/ArdaBerkayGurbuz/flashcards-content/main/decks/';
   var MARKETPLACE_URL_KEY = 'flashcards.marketplace.url';
@@ -227,6 +229,15 @@
                 a: String(c.a == null ? '' : c.a),
                 createdAt: c.createdAt || Date.now()
               };
+              // Sprint 7: SR alanları (yalnız >0 ise yaz, eski yedek bozulmasın)
+              var sRep = Number(c.repetitions) || 0;
+              var sInt = Number(c.intervalDays) || 0;
+              var sEase = Number(c.easeFactor);
+              if (sRep > 0) card.repetitions = sRep;
+              if (sInt > 0) card.intervalDays = sInt;
+              if (sEase >= 1.3 && sEase <= 3) card.easeFactor = sEase;
+              if (typeof c.lastReviewedAt === 'number' && c.lastReviewedAt > 0)
+                card.lastReviewedAt = c.lastReviewedAt;
               // Sprint 6: opsiyonel zengin alanlar — yalnız doluysa yaz
               if (typeof c.pronunciation === 'string' && c.pronunciation)
                 card.pronunciation = c.pronunciation;
@@ -566,6 +577,193 @@
     } catch (e) { /* yut */ }
   }
 
+  /* ===== Sprint 7: Retention (streak + günlük hedef + hatırlatma) ===== */
+
+  // Local takvim tabanlı YYYY-MM-DD (UTC DEĞİL — gece yarısı doğru hesaplansın)
+  function getTodayString() {
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+
+  function parseDateStr(s) {
+    // 'YYYY-MM-DD' → Date (local 00:00)
+    if (!s || typeof s !== 'string') return null;
+    var p = s.split('-');
+    if (p.length !== 3) return null;
+    var d = new Date(parseInt(p[0], 10),
+                     parseInt(p[1], 10) - 1,
+                     parseInt(p[2], 10), 0, 0, 0, 0);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function isYesterday(prevStr, todayStr) {
+    var prev = parseDateStr(prevStr);
+    var today = parseDateStr(todayStr);
+    if (!prev || !today) return false;
+    var diffMs = today.getTime() - prev.getTime();
+    // 1 günden büyük tolerans: 23-25 saat arası (DST için)
+    return diffMs >= 23 * 3600000 && diffMs <= 25 * 3600000;
+  }
+
+  function defaultRetention() {
+    return {
+      streak: { current: 0, longest: 0, lastStudyDate: null, studyDates: [] },
+      dailyGoal: { target: 20, todayCount: 0, todayDate: null },
+      reminder: { enabled: false, time: '20:00', lastFiredDate: null }
+    };
+  }
+
+  function loadRetentionState() {
+    try {
+      var raw = localStorage.getItem(RETENTION_KEY);
+      if (!raw) return defaultRetention();
+      var parsed = JSON.parse(raw);
+      var d = defaultRetention();
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.streak && typeof parsed.streak === 'object') {
+          d.streak.current = Number(parsed.streak.current) || 0;
+          d.streak.longest = Number(parsed.streak.longest) || 0;
+          d.streak.lastStudyDate = typeof parsed.streak.lastStudyDate === 'string'
+            ? parsed.streak.lastStudyDate : null;
+          d.streak.studyDates = Array.isArray(parsed.streak.studyDates)
+            ? parsed.streak.studyDates.filter(function (x) {
+                return typeof x === 'string';
+              }).slice(-60) : [];
+        }
+        if (parsed.dailyGoal && typeof parsed.dailyGoal === 'object') {
+          var t = Number(parsed.dailyGoal.target);
+          d.dailyGoal.target = (t >= 5 && t <= 500) ? t : 20;
+          d.dailyGoal.todayCount = Number(parsed.dailyGoal.todayCount) || 0;
+          d.dailyGoal.todayDate = typeof parsed.dailyGoal.todayDate === 'string'
+            ? parsed.dailyGoal.todayDate : null;
+        }
+        if (parsed.reminder && typeof parsed.reminder === 'object') {
+          d.reminder.enabled = !!parsed.reminder.enabled;
+          if (typeof parsed.reminder.time === 'string' &&
+              /^\d{2}:\d{2}$/.test(parsed.reminder.time)) {
+            d.reminder.time = parsed.reminder.time;
+          }
+          d.reminder.lastFiredDate = typeof parsed.reminder.lastFiredDate === 'string'
+            ? parsed.reminder.lastFiredDate : null;
+        }
+      }
+      return d;
+    } catch (e) {
+      return defaultRetention();
+    }
+  }
+
+  function saveRetentionState(s) {
+    try { localStorage.setItem(RETENTION_KEY, JSON.stringify(s)); }
+    catch (e) {}
+  }
+
+  // Çalışma oturumu sonunda çağrılır. Mevcut state'i okur, mutate eder,
+  // kaydeder; { newStreak, didIncrement } döndürür (kutlama için).
+  function recordStudySession(cardsStudied) {
+    var state = loadRetentionState();
+    var today = getTodayString();
+    var lastDate = state.streak.lastStudyDate;
+    var prevStreak = state.streak.current;
+    var didIncrement = false;
+
+    if (lastDate === today) {
+      // bugün zaten çalışılmış — streak aynı
+    } else if (lastDate && isYesterday(lastDate, today)) {
+      state.streak.current += 1;
+      didIncrement = true;
+    } else {
+      state.streak.current = 1;
+      didIncrement = prevStreak !== 1;
+    }
+    if (state.streak.current > state.streak.longest) {
+      state.streak.longest = state.streak.current;
+    }
+    state.streak.lastStudyDate = today;
+    if (state.streak.studyDates.indexOf(today) < 0) {
+      state.streak.studyDates.push(today);
+      state.streak.studyDates = state.streak.studyDates.slice(-60);
+    }
+
+    if (state.dailyGoal.todayDate !== today) {
+      state.dailyGoal.todayDate = today;
+      state.dailyGoal.todayCount = 0;
+    }
+    state.dailyGoal.todayCount += (Number(cardsStudied) || 0);
+
+    saveRetentionState(state);
+    return { state: state, newStreak: state.streak.current, didIncrement: didIncrement };
+  }
+
+  // Uygulama açılışında streak'in hâlâ geçerli olup olmadığını kontrol et.
+  // Bugün veya dün çalışılmadıysa streak'i sıfırla.
+  function checkStreakBroken() {
+    var state = loadRetentionState();
+    var today = getTodayString();
+    var lastDate = state.streak.lastStudyDate;
+    if (!lastDate) return state;
+    if (lastDate === today || isYesterday(lastDate, today)) return state;
+    if (state.streak.current > 0) {
+      state.streak.current = 0;
+      saveRetentionState(state);
+    }
+    return state;
+  }
+
+  // Kart "öğrenilmiş" sayılır mı? (SM-2 hafif: rep>=2 veya interval>=7)
+  function isCardLearned(c) {
+    if (!c) return false;
+    return (Number(c.repetitions) || 0) >= 2 ||
+           (Number(c.intervalDays) || 0) >= 7;
+  }
+
+  function deckLearnedPercent(deck) {
+    if (!deck || !deck.cards || deck.cards.length === 0) return 0;
+    var learned = 0;
+    for (var i = 0; i < deck.cards.length; i++) {
+      if (isCardLearned(deck.cards[i])) learned++;
+    }
+    return Math.round((learned / deck.cards.length) * 100);
+  }
+
+  // Hatırlatma bildirimi (günlük sabit saat).
+  function fireDailyReminder(retentionState) {
+    if (!notificationSupported() || Notification.permission !== 'granted') return;
+    var today = getTodayString();
+    var remaining;
+    if (retentionState.dailyGoal.todayDate === today) {
+      remaining = Math.max(0,
+        retentionState.dailyGoal.target - retentionState.dailyGoal.todayCount);
+    } else {
+      remaining = retentionState.dailyGoal.target;
+    }
+    var streak = retentionState.streak.current;
+    var body = streak > 0
+      ? streak + ' günlük serini koru! ' + remaining + ' kart kaldı.'
+      : 'Bugün ' + remaining + ' kart çalışmaya ne dersin?';
+    var opts = {
+      body: body,
+      tag: 'daily-reminder',
+      data: { action: 'study' },
+      icon: './icons/flashcards_icons/pwa/icon-192.png',
+      badge: './icons/flashcards_icons/pwa/icon-192.png'
+    };
+    try {
+      if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        navigator.serviceWorker.ready.then(function (reg) {
+          reg.showNotification('📚 Çalışma zamanı!', opts);
+        }).catch(function () {
+          try { new Notification('📚 Çalışma zamanı!', opts); } catch (e) {}
+        });
+      } else {
+        new Notification('📚 Çalışma zamanı!', opts);
+      }
+    } catch (e) {}
+  }
+
   function pct(correct, seen) {
     if (!seen) return 0;
     return Math.round((correct / seen) * 100);
@@ -609,16 +807,33 @@
   /* ===== Sprint 4: Onboarding (3 ekran, route'tan bağımsız overlay) ===== */
 
   function OnboardingOverlay(props) {
-    var stepH = useState(0); // 0/1/2 — localStorage'a YAZILMAZ (session-only)
+    var stepH = useState(0); // 0..3 — localStorage'a YAZILMAZ (session-only)
     var step = stepH[0], setStep = stepH[1];
+    // Sprint 7: günlük hedef + hatırlatma seçimi (4. ekran)
+    var goalH = useState(20);
+    var goal = goalH[0], setGoal = goalH[1];
+    var remH = useState(false);
+    var rem = remH[0], setRem = remH[1];
+    var remTH = useState('20:00');
+    var remT = remTH[0], setRemT = remTH[1];
 
     function finish(withSample) {
+      // Sprint 7: hedef + (varsa) hatırlatma kaydet
+      try {
+        var st = loadRetentionState();
+        st.dailyGoal.target = goal >= 5 ? goal : 20;
+        if (rem) {
+          st.reminder.enabled = true;
+          if (/^\d{2}:\d{2}$/.test(remT)) st.reminder.time = remT;
+        }
+        saveRetentionState(st);
+      } catch (e) {}
       if (withSample) props.onSample();
       props.onFinish();
     }
 
     var dots = h('div', { className: 'onb-dots' },
-      [0, 1, 2].map(function (i) {
+      [0, 1, 2, 3].map(function (i) {
         return h('span', { key: i, className: 'onb-dot' + (i === step ? ' on' : '') });
       })
     );
@@ -647,6 +862,42 @@
         h('button', { className: 'btn primary full lg', onClick: function () { setStep(2); } }, 'Devam')
       ),
       h('div', { className: 'onb-screen', key: 's2' },
+        h('div', { className: 'onb-art' }, '🎯'),
+        h('h2', { className: 'onb-title' }, 'Günlük hedef'),
+        h('p', { className: 'onb-text' },
+          'Her gün kaç kart çalışmak istersin? Küçük adımlar büyük seriler.'),
+        h('div', { className: 'goal-presets' },
+          [10, 20, 30].map(function (n) {
+            return h('button', {
+              key: n, type: 'button',
+              className: 'goal-chip' + (goal === n ? ' sel' : ''),
+              onClick: function () { setGoal(n); }
+            }, n + ' kart');
+          })
+        ),
+        h('div', { className: 'spacer-sm' }),
+        h('label', { className: 'cm-ctx-row', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+          h('span', null, '🔔 Günlük hatırlatma'),
+          h('button', {
+            className: 'toggle-sw' + (rem ? ' on' : ''), type: 'button',
+            role: 'switch', 'aria-checked': rem ? 'true' : 'false',
+            'aria-label': 'Günlük hatırlatma',
+            onClick: function () { setRem(!rem); }
+          }, h('span', { className: 'toggle-knob' }))
+        ),
+        rem
+          ? h('div', { className: 'field', style: { marginTop: '12px' } },
+              h('label', null, 'Saat'),
+              h('input', {
+                type: 'time', value: remT,
+                onChange: function (e) { setRemT(e.target.value); }
+              })
+            )
+          : null,
+        h('div', { className: 'spacer-sm' }),
+        h('button', { className: 'btn primary full lg', onClick: function () { setStep(3); } }, 'Devam')
+      ),
+      h('div', { className: 'onb-screen', key: 's3' },
         h('div', { className: 'onb-art' }, '🚀'),
         h('h2', { className: 'onb-title' }, 'Hazırsın!'),
         h('p', { className: 'onb-text' },
@@ -714,11 +965,16 @@
 
   function DeckDetailView(props) {
     var deck = props.deck;
+    var learned = deckLearnedPercent(deck);
     return h('div', null,
       h('div', { className: 'section-head' },
         h('span', { className: 'lbl' }, deck.cards.length + ' kart'),
         h('button', { className: 'linkbtn', onClick: function () { props.onAddCard(); } }, '＋ Kart ekle')
       ),
+      deck.cards.length > 0
+        ? h('div', { className: 'deck-learned' },
+            'Bu destenin ', h('strong', null, '%' + learned), '\'ini öğrendin')
+        : null,
       deck.cards.length === 0
         ? h('div', { className: 'empty' },
             h('div', { className: 'big' }, 'Bu deste boş'),
@@ -783,6 +1039,11 @@
     function advance(rating) {
       // rating: 'good' | 'maybe' | 'bad'
       setS(function (p) {
+        // Sprint 7: SR alanlarını güncelle (deste modunda gerçek kart;
+        // bağlam modunda 'deckId::cardId' bileşik id)
+        if (p.current && props.onCardReview) {
+          props.onCardReview(p.current.id, rating);
+        }
         var q = p.queue.slice();
         var rq = p.requeue.slice();
         var seen = p.seen + 1;
@@ -969,10 +1230,12 @@
 
     var perRows = Object.keys(stats.perDeck).map(function (id) {
       var p = stats.perDeck[id];
+      var d = deckById[id];
       return {
-        name: deckById[id] ? deckById[id].name : '(silinmiş deste)',
+        name: d ? d.name : '(silinmiş deste)',
         sessions: p.sessions, seen: p.seen, correct: p.correct,
-        pct: pct(p.correct, p.seen)
+        pct: pct(p.correct, p.seen),
+        learned: d ? deckLearnedPercent(d) : 0
       };
     }).filter(function (r) { return r.seen > 0; });
 
@@ -1003,6 +1266,26 @@
 
     var overall = pct(stats.totalCorrect, stats.totalSeen);
 
+    // Sprint 7: streak + 30 günlük heatmap + haftalık özet
+    var retention = props.retention || defaultRetention();
+    var studyDateSet = {};
+    (retention.streak.studyDates || []).forEach(function (s) { studyDateSet[s] = true; });
+    // Son 30 gün (en eski → en yeni)
+    var heatDays = [];
+    var todayBase = new Date();
+    todayBase.setHours(0, 0, 0, 0);
+    for (var i = 29; i >= 0; i--) {
+      var d = new Date(todayBase.getTime() - i * 86400000);
+      var y = d.getFullYear();
+      var m = d.getMonth() + 1;
+      var dd = d.getDate();
+      var s = y + '-' + (m < 10 ? '0' : '') + m + '-' + (dd < 10 ? '0' : '') + dd;
+      heatDays.push({ key: s, on: !!studyDateSet[s] });
+    }
+    // Haftalık özet (son 7 gün)
+    var weekDays = 0;
+    heatDays.slice(-7).forEach(function (d) { if (d.on) weekDays++; });
+
     return h('div', null,
       // Gradient kahraman kart: büyük genel başarı + satır içi 3'lü özet
       h('div', { className: 'stats-hero-card' },
@@ -1020,6 +1303,33 @@
           h('div', { className: 'shc-stat' },
             h('div', { className: 'v' }, stats.totalCorrect),
             h('div', { className: 'k' }, 'Doğru'))
+        )
+      ),
+      // Sprint 7: Streak + 30 günlük heatmap + haftalık özet
+      h('div', { className: 'retention-stats-card' },
+        h('div', { className: 'rs-row' },
+          h('div', { className: 'rs-cell' },
+            h('div', { className: 'rs-num' }, retention.streak.current),
+            h('div', { className: 'rs-lbl' }, 'gün seri 🔥')
+          ),
+          h('div', { className: 'rs-cell' },
+            h('div', { className: 'rs-num' }, retention.streak.longest),
+            h('div', { className: 'rs-lbl' }, 'en uzun seri')
+          ),
+          h('div', { className: 'rs-cell' },
+            h('div', { className: 'rs-num' }, weekDays),
+            h('div', { className: 'rs-lbl' }, 'bu hafta gün')
+          )
+        ),
+        h('div', { className: 'stats-card-head', style: { marginTop: '8px' } }, 'Son 30 gün'),
+        h('div', { className: 'heatmap' },
+          heatDays.map(function (d) {
+            return h('div', {
+              key: d.key,
+              className: 'heatmap-cell' + (d.on ? ' on' : ''),
+              title: d.key + (d.on ? ' — çalışıldı' : '')
+            });
+          })
         )
       ),
       perRows.length === 0
@@ -1052,7 +1362,9 @@
                 return h('div', { className: 'sl-row', key: i },
                   h('div', { className: 'sl-name' }, r.name),
                   h('div', { className: 'sl-meta' },
-                    h('span', { className: 'sl-sub' }, r.sessions + ' sns · ' + r.seen + ' görü'),
+                    h('span', { className: 'sl-sub' },
+                      r.sessions + ' sns · ' + r.seen + ' görü · ' +
+                      'öğr %' + r.learned),
                     h('span', { className: 'sl-pct' }, r.pct + '%')
                   )
                 );
@@ -1144,6 +1456,53 @@
           (imgCnt === null ? '…' : imgCnt) + (typeof imgCnt === 'number' ? ' dosya' : '')),
         h('button', { className: 'btn ghost', onClick: clearImgCache },
           'Görsel cache’ini temizle')
+      )
+    );
+  }
+
+  // Sprint 7: Hatırlatma + günlük hedef ayar paneli (DataView içinde)
+  function ReminderSection(props) {
+    var r = props.retention.reminder;
+    var supported = notificationSupported();
+    var disabled = !supported || props.notifPerm === 'denied';
+
+    return h('div', { className: 'panel reminder-section' },
+      h('h3', null, 'Hatırlatmalar'),
+      h('p', null, 'Her gün belirlediğin saatte “çalışma zamanı” bildirimi al.'),
+      h('label', { className: 'cm-ctx-row', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+        h('span', null, 'Günlük çalışma hatırlatması'),
+        h('button', {
+          className: 'toggle-sw' + (r.enabled ? ' on' : ''),
+          role: 'switch', 'aria-checked': r.enabled ? 'true' : 'false',
+          'aria-label': 'Günlük hatırlatma',
+          disabled: disabled,
+          onClick: function () { props.onToggleReminder(!r.enabled); }
+        }, h('span', { className: 'toggle-knob' }))
+      ),
+      r.enabled
+        ? h('div', { className: 'field', style: { marginTop: '12px' } },
+            h('label', null, 'Saat'),
+            h('input', {
+              type: 'time', value: r.time,
+              onChange: function (e) { props.onSetReminderTime(e.target.value); }
+            })
+          )
+        : null,
+      !supported
+        ? h('div', { className: 'hint-line' }, 'Tarayıcın bildirim desteklemiyor.')
+        : props.notifPerm === 'denied'
+          ? h('div', { className: 'hint-line' }, 'Bildirim izni reddedildi — tarayıcı/site ayarlarından açılabilir.')
+          : h('div', { className: 'hint-line' }, 'Bildirimler uygulama açıkken veya açtığında çalışır.'),
+      h('div', { className: 'field', style: { marginTop: '16px' } },
+        h('label', null, 'Günlük hedef'),
+        h('div', { className: 'goal-inline' },
+          h('span', { className: 'mono goal-inline-val' },
+            props.retention.dailyGoal.target + ' kart / gün'),
+          h('button', {
+            className: 'btn ghost', type: 'button',
+            onClick: props.onOpenGoal
+          }, 'Değiştir')
+        )
       )
     );
   }
@@ -1243,6 +1602,14 @@
           }, h('span', { className: 'toggle-knob' }))
         )
       ),
+      // Sprint 7: Hatırlatma + günlük hedef
+      h(ReminderSection, {
+        retention: props.retention,
+        notifPerm: props.notifPerm,
+        onToggleReminder: props.onToggleReminder,
+        onSetReminderTime: props.onSetReminderTime,
+        onOpenGoal: props.onOpenGoal
+      }),
       // Sprint 6: Gelişmiş (marketplace URL)
       h(MarketplaceSettings, null),
       // Gizlilik
@@ -1860,6 +2227,121 @@
     );
   }
 
+  // ---------- Sprint 7: Retention bileşenleri ----------
+
+  function RetentionHeader(props) {
+    var streak = props.retention.streak.current;
+    var target = props.retention.dailyGoal.target;
+    var today = getTodayString();
+    var todayCount = (props.retention.dailyGoal.todayDate === today)
+      ? props.retention.dailyGoal.todayCount : 0;
+    var pctVal = target > 0 ? Math.min(100, Math.round(todayCount / target * 100)) : 0;
+    var done = todayCount >= target;
+
+    return h('div', { className: 'retention-header' },
+      h('div', {
+        className: 'streak-box' + (streak === 0 ? ' zero' : ''),
+        role: 'group', 'aria-label': 'Çalışma serisi'
+      },
+        h('div', { className: 'streak-emoji' }, '🔥'),
+        h('div', { className: 'streak-text' },
+          streak === 0
+            ? h('div', { className: 'streak-zero-msg' }, 'Bugün başla!')
+            : h('div', null,
+                h('div', { className: 'streak-num' }, streak),
+                h('div', { className: 'streak-lbl' }, 'gün seri')
+              )
+        )
+      ),
+      h('button', {
+        className: 'goal-box' + (done ? ' done' : ''),
+        type: 'button', onClick: props.onOpenGoal,
+        'aria-label': 'Günlük hedef ayarı'
+      },
+        h('div', { className: 'goal-top' },
+          h('span', { className: 'goal-emoji' }, '🎯'),
+          done
+            ? h('span', { className: 'goal-done-text' }, '✓ Hedef tamam! 🎉')
+            : h('span', { className: 'goal-frac' },
+                h('strong', null, todayCount), '/', target)
+        ),
+        h('div', { className: 'goal-cap' },
+          done ? 'Bugünkü hedef tamamlandı' : 'bugünkü hedef'),
+        h('div', { className: 'goal-bar' },
+          h('div', { className: 'goal-bar-fill', style: { width: pctVal + '%' } })
+        )
+      )
+    );
+  }
+
+  function DailyGoalModal(props) {
+    var initT = props.initial || 20;
+    var presets = [10, 20, 30, 50];
+    var matched = presets.indexOf(initT) >= 0;
+    var modeH = useState(matched ? 'preset' : 'custom');
+    var mode = modeH[0], setMode = modeH[1];
+    var pH = useState(matched ? initT : 20);
+    var p = pH[0], setP = pH[1];
+    var cH = useState(matched ? '' : String(initT));
+    var customStr = cH[0], setCustomStr = cH[1];
+
+    function save() {
+      var n;
+      if (mode === 'preset') n = p;
+      else {
+        n = parseInt(customStr, 10);
+        if (isNaN(n)) n = 20;
+      }
+      if (n < 5) n = 5;
+      if (n > 500) n = 500;
+      props.onSave(n);
+    }
+
+    return h(Modal, { title: 'Günlük hedef', onClose: props.onClose },
+      h('p', { className: 'confirm-text' },
+        'Her gün kaç kart çalışmak istersin? Hedefe ulaşınca 🎉'),
+      h('div', { className: 'goal-presets' },
+        presets.map(function (n) {
+          return h('button', {
+            key: n, type: 'button',
+            className: 'goal-chip' + (mode === 'preset' && p === n ? ' sel' : ''),
+            onClick: function () { setMode('preset'); setP(n); }
+          }, n);
+        }),
+        h('button', {
+          type: 'button',
+          className: 'goal-chip' + (mode === 'custom' ? ' sel' : ''),
+          onClick: function () { setMode('custom'); }
+        }, 'Özel')
+      ),
+      mode === 'custom'
+        ? h('div', { className: 'field', style: { marginTop: '12px' } },
+            h('label', null, 'Özel hedef (5 – 500)'),
+            h('input', {
+              type: 'number', min: 5, max: 500, value: customStr,
+              onChange: function (e) { setCustomStr(e.target.value); }
+            })
+          )
+        : null,
+      h('div', { className: 'modal-actions' },
+        h('button', { className: 'btn ghost', onClick: props.onClose }, 'Vazgeç'),
+        h('button', { className: 'btn primary', onClick: save }, 'Kaydet')
+      )
+    );
+  }
+
+  function StreakCelebrate(props) {
+    useEffect(function () {
+      var t = setTimeout(props.onDone, 1800);
+      return function () { clearTimeout(t); };
+    }, []);
+    return h('div', { className: 'streak-celebrate', role: 'status' },
+      h('div', { className: 'sc-emoji' }, '🔥'),
+      h('div', { className: 'sc-text' },
+        props.streak + ' günlük seri! Harikasın!')
+    );
+  }
+
   // ---------- Kök uygulama ----------
 
   function App() {
@@ -1923,6 +2405,15 @@
     // bildirim zamanlama timer'ı
     var notifTimerRef = useRef(null);
 
+    // Sprint 7: retention (streak/günlük hedef/hatırlatma) + kutlama toast
+    var retentionHook = useState(loadRetentionState);
+    var retention = retentionHook[0], setRetention = retentionHook[1];
+    var celebrateHook = useState(null); // {streak, id} | null
+    var celebrate = celebrateHook[0], setCelebrate = celebrateHook[1];
+    var reminderTimerRef = useRef(null);
+    var goalModalHook = useState(false);
+    var goalModalOpen = goalModalHook[0], setGoalModalOpen = goalModalHook[1];
+
     // Sprint 6: marketplace
     var mpStatusHook = useState('idle');   // idle|loading|ready|error|offline
     var mpStatus = mpStatusHook[0], setMpStatus = mpStatusHook[1];
@@ -1954,6 +2445,32 @@
     // Boot'ta bir kere: kırık (orphan) kart-bağlam linklerini sessizce temizle
     useEffect(function () { cleanupOrphanLinks(); }, []);
 
+    // Sprint 7: Boot'ta streak kırılma kontrolü + hatırlatma planı
+    useEffect(function () {
+      var st = checkStreakBroken();
+      setRetention(st);
+      scheduleDailyReminder();
+      return function () {
+        if (reminderTimerRef.current) {
+          clearTimeout(reminderTimerRef.current);
+          reminderTimerRef.current = null;
+        }
+      };
+    }, []);
+
+    // Sprint 7: Sekme tekrar görünür olunca catch-up planlamayı yeniden çalıştır
+    useEffect(function () {
+      function onVis() {
+        if (!document.hidden) {
+          var st = checkStreakBroken();
+          setRetention(st);
+          scheduleDailyReminder();
+        }
+      }
+      document.addEventListener('visibilitychange', onVis);
+      return function () { document.removeEventListener('visibilitychange', onVis); };
+    }, []);
+
     // Sprint 6: Keşfet'e ilk girişte manifest yükle (bir kez)
     useEffect(function () {
       if (route.name === 'discover' && !mpLoadedRef.current) {
@@ -1962,16 +2479,25 @@
       }
     }, [route.name]);
 
-    // Sprint 4: deep-link (?action=study&contextId=) — boot'ta bir kere
+    // Sprint 4/7: deep-link (?action=study[&contextId=...]) — boot'ta bir kere
     useEffect(function () {
       try {
         var sp = new URLSearchParams(window.location.search);
-        if (sp.get('action') === 'study' && sp.get('contextId')) {
+        if (sp.get('action') === 'study') {
           var cid = sp.get('contextId');
-          var ctx = ctxState.contexts.filter(function (c) { return c.id === cid; })[0];
-          // URL'i temizle (tekrar tetiklenmesin)
           window.history.replaceState({}, '', window.location.pathname);
-          if (ctx) startContextStudy(ctx);
+          if (cid) {
+            var ctx = ctxState.contexts.filter(function (c) { return c.id === cid; })[0];
+            if (ctx) startContextStudy(ctx);
+          } else {
+            // Sprint 7: günlük hatırlatma → ilk dolu desteyle çalış
+            var firstDeck = state.decks.filter(function (d) {
+              return d.cards.length > 0;
+            })[0];
+            if (firstDeck) {
+              setRoute({ name: 'study', deckId: firstDeck.id, sessionKey: uid() });
+            }
+          }
         }
       } catch (e) {}
     }, []);
@@ -1981,9 +2507,19 @@
       if (!navigator.serviceWorker) return;
       function onMsg(e) {
         if (e.data && e.data.type === 'notification-click' && e.data.data) {
-          var cid = e.data.data.contextId;
-          var ctx = ctxState.contexts.filter(function (c) { return c.id === cid; })[0];
-          if (ctx) startContextStudy(ctx);
+          var d = e.data.data;
+          if (d.contextId) {
+            var ctx = ctxState.contexts.filter(function (c) { return c.id === d.contextId; })[0];
+            if (ctx) startContextStudy(ctx);
+          } else if (d.action === 'study') {
+            // Sprint 7: günlük hatırlatma — ilk dolu desteyle çalış
+            var firstDeck = state.decks.filter(function (dk) {
+              return dk.cards.length > 0;
+            })[0];
+            if (firstDeck) {
+              setRoute({ name: 'study', deckId: firstDeck.id, sessionKey: uid() });
+            }
+          }
         }
       }
       navigator.serviceWorker.addEventListener('message', onMsg);
@@ -2373,6 +2909,67 @@
         p.sessions += 1; p.seen += seen; p.correct += correct;
         n.decks.forEach(function (d) { if (d.id === deckId) d.lastStudied = Date.now(); });
       });
+      applyRetentionAfterSession(seen);
+    }
+
+    // Sprint 7: Seans sonu — streak/günlük hedef güncelle, kutlama tetikle
+    function applyRetentionAfterSession(cardsStudied) {
+      if (!cardsStudied || cardsStudied < 1) return;
+      var res = recordStudySession(cardsStudied);
+      setRetention(res.state);
+      if (res.didIncrement && res.newStreak >= 2) {
+        setCelebrate({ streak: res.newStreak, id: uid() });
+      } else if (res.newStreak === 1 && res.didIncrement) {
+        // ilk gün — sade toast
+        showToast('🔥 Seri başladı! İyi başlangıç.');
+      }
+    }
+
+    // Sprint 7: Karta SR alanlarını yaz (SM-2 hafif uyarlama)
+    function applyCardReview(cardId, rating) {
+      // Bağlam modunda id 'deckId::cardId' bileşik
+      var deckId, realId;
+      var idx = cardId.indexOf('::');
+      if (idx > 0) {
+        deckId = cardId.substring(0, idx);
+        realId = cardId.substring(idx + 2);
+      } else {
+        // Deste modu — cardId saf; deckId'yi route'tan bul
+        realId = cardId;
+        deckId = null;
+      }
+      update(function (n) {
+        for (var di = 0; di < n.decks.length; di++) {
+          var d = n.decks[di];
+          if (deckId && d.id !== deckId) continue;
+          for (var ci = 0; ci < d.cards.length; ci++) {
+            var c = d.cards[ci];
+            if (c.id !== realId) continue;
+            var rep = Number(c.repetitions) || 0;
+            var ivl = Number(c.intervalDays) || 0;
+            var ease = Number(c.easeFactor) || 2.5;
+            if (rating === 'good') {
+              rep += 1;
+              if (rep === 1) ivl = 1;
+              else if (rep === 2) ivl = 3;
+              else ivl = Math.max(1, Math.round(ivl * ease));
+              ease = Math.min(2.8, ease + 0.1);
+            } else if (rating === 'maybe') {
+              ivl = Math.max(1, ivl);
+            } else { // bad
+              rep = 0;
+              ivl = 0;
+              ease = Math.max(1.3, ease - 0.2);
+            }
+            c.repetitions = rep;
+            c.intervalDays = ivl;
+            c.easeFactor = Math.round(ease * 100) / 100;
+            c.lastReviewedAt = Date.now();
+            return;
+          }
+          if (deckId) return;
+        }
+      });
     }
 
     function resetStats() {
@@ -2391,6 +2988,7 @@
         n.stats.totalSeen += seen;
         n.stats.totalCorrect += correct;
       });
+      applyRetentionAfterSession(seen);
     }
 
     // Manuel yenile / "konum izni ver" — geo al, banner'ı tazele
@@ -2649,8 +3247,55 @@
     function requestNotifPermission() {
       ensureNotificationPermission().then(function (r) {
         setNotifPerm(notificationPermState());
-        if (r === 'granted') scheduleNextContextNotification();
+        if (r === 'granted') {
+          scheduleNextContextNotification();
+          scheduleDailyReminder();
+        }
       });
+    }
+
+    // Sprint 7: günlük hatırlatmayı planla (uygulama açıkken setTimeout;
+    // saat geçmişse ve bugün atılmamışsa son 2 saatlik catch-up bildirimi).
+    function scheduleDailyReminder() {
+      if (reminderTimerRef.current) {
+        clearTimeout(reminderTimerRef.current);
+        reminderTimerRef.current = null;
+      }
+      var st = loadRetentionState();
+      if (!st.reminder.enabled) return;
+      if (notificationPermState() !== 'granted') return;
+      var today = getTodayString();
+      if (st.reminder.lastFiredDate === today) return;
+      // Bugünkü hedef tamamlandıysa hatırlatma gerek yok
+      if (st.dailyGoal.todayDate === today &&
+          st.dailyGoal.todayCount >= st.dailyGoal.target) return;
+
+      var parts = st.reminder.time.split(':');
+      var h0 = parseInt(parts[0], 10) || 0;
+      var m0 = parseInt(parts[1], 10) || 0;
+      var now = new Date();
+      var target = new Date();
+      target.setHours(h0, m0, 0, 0);
+      var delay = target.getTime() - now.getTime();
+
+      function doFire() {
+        var cur = loadRetentionState();
+        var t2 = getTodayString();
+        if (cur.reminder.lastFiredDate === t2) return;
+        if (cur.dailyGoal.todayDate === t2 &&
+            cur.dailyGoal.todayCount >= cur.dailyGoal.target) return;
+        fireDailyReminder(cur);
+        cur.reminder.lastFiredDate = t2;
+        saveRetentionState(cur);
+        setRetention(cur);
+      }
+
+      if (delay > 0) {
+        reminderTimerRef.current = setTimeout(doFire, Math.min(delay, 86400000));
+      } else if (delay > -2 * 3600000) {
+        // Saat geçti ama son 2 saat içinde — hemen yetiş
+        doFire();
+      }
     }
 
     // ----- İçe aktarma -----
@@ -2847,7 +3492,8 @@
             onRestart: function () {
               setRoute({ name: 'study', sessionKey: uid(), ctxStudy: cs });
             },
-            onFinish: finishContextSession
+            onFinish: finishContextSession,
+            onCardReview: applyCardReview
           })
         );
       }
@@ -2863,7 +3509,11 @@
           key: route.sessionKey || sd.id,
           onExit: function () { setRoute({ name: 'list' }); },
           onRestart: function () { setRoute({ name: 'study', deckId: sd.id, sessionKey: uid() }); },
-          onFinish: finishSession
+          onFinish: finishSession,
+          onCardReview: function (cardId, rating) {
+            // Deste modu — saf cardId; deckId'yi route'tan eklenmiş bileşik gönder
+            applyCardReview(sd.id + '::' + cardId, rating);
+          }
         })
       );
     }
@@ -2907,6 +3557,10 @@
       });
       var topCatchup = catchups.length ? catchups[0] : null;
       body = h('div', null,
+        h(RetentionHeader, {
+          retention: retention,
+          onOpenGoal: function () { setGoalModalOpen(true); }
+        }),
         h(BannerSection, {
           hasAnyContext: ctxState.contexts.length > 0,
           matches: visibleMatches,
@@ -2957,6 +3611,7 @@
       body = h(StatsView, {
         state: state,
         ctxState: ctxState,
+        retention: retention,
         onReset: function () {
           setModal({
             type: 'confirm',
@@ -2981,6 +3636,39 @@
           setCatchupOn(nv);
           try { localStorage.setItem(CATCHUP_KEY, nv ? '1' : '0'); } catch (e) {}
         },
+        // Sprint 7: hatırlatma + günlük hedef
+        retention: retention,
+        onToggleReminder: function (v) {
+          var st = loadRetentionState();
+          if (v && notificationPermState() === 'default') {
+            ensureNotificationPermission().then(function () {
+              setNotifPerm(notificationPermState());
+              var st2 = loadRetentionState();
+              st2.reminder.enabled = (notificationPermState() === 'granted');
+              saveRetentionState(st2);
+              setRetention(st2);
+              scheduleDailyReminder();
+            });
+          } else {
+            st.reminder.enabled = v && (notificationPermState() === 'granted');
+            saveRetentionState(st);
+            setRetention(st);
+            scheduleDailyReminder();
+          }
+        },
+        onSetReminderTime: function (t) {
+          if (!/^\d{2}:\d{2}$/.test(t)) return;
+          var st = loadRetentionState();
+          st.reminder.time = t;
+          // saat değiştiyse bugün tekrar atabilsin
+          if (st.reminder.lastFiredDate === getTodayString()) {
+            st.reminder.lastFiredDate = null;
+          }
+          saveRetentionState(st);
+          setRetention(st);
+          scheduleDailyReminder();
+        },
+        onOpenGoal: function () { setGoalModalOpen(true); },
         onImport: function (norm, ctxNorm) {
           setPendingImport({ deckNorm: norm, ctxNorm: ctxNorm || null });
           setModal({ type: 'import' });
@@ -3128,7 +3816,27 @@
             }, 'Yenile')
           )
         : null,
-      toast ? h(Toast, { key: toast.id, text: toast.text, onDone: function () { setToast(null); } }) : null
+      toast ? h(Toast, { key: toast.id, text: toast.text, onDone: function () { setToast(null); } }) : null,
+      // Sprint 7: streak kutlama toast'ı
+      celebrate ? h(StreakCelebrate, {
+        key: celebrate.id, streak: celebrate.streak,
+        onDone: function () { setCelebrate(null); }
+      }) : null,
+      // Sprint 7: günlük hedef modal'ı
+      goalModalOpen
+        ? h(DailyGoalModal, {
+            initial: retention.dailyGoal.target,
+            onClose: function () { setGoalModalOpen(false); },
+            onSave: function (n) {
+              var st = loadRetentionState();
+              st.dailyGoal.target = n;
+              saveRetentionState(st);
+              setRetention(st);
+              setGoalModalOpen(false);
+              showToast('Günlük hedef: ' + n + ' kart');
+            }
+          })
+        : null
     );
   }
 

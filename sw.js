@@ -3,7 +3,7 @@
    App shell cache-first + çevrimdışı yedek
    ============================================================ */
 
-var CACHE = 'flashcards-v17';
+var CACHE = 'flashcards-v18';
 // Sprint 6: indirilen marketplace görselleri (çevrimdışı çalışsın)
 var MP_IMG = 'flashcards-mp-images-v1';
 
@@ -119,9 +119,15 @@ self.addEventListener('notificationclick', function (event) {
         }
       }
       if (clients.openWindow) {
-        var url = data.contextId
-          ? './?action=study&contextId=' + encodeURIComponent(data.contextId)
-          : './';
+        var url;
+        if (data.contextId) {
+          url = './?action=study&contextId=' + encodeURIComponent(data.contextId);
+        } else if (data.action === 'study') {
+          // Sprint 7: günlük hatırlatma — varsayılan çalışma
+          url = './?action=study';
+        } else {
+          url = './';
+        }
         return clients.openWindow(url);
       }
     })

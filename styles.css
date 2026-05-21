@@ -193,9 +193,16 @@ button { cursor: pointer; border: none; background: none; }
   padding: 6px;
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-1);
-  margin-top: 22px;
-  position: sticky;
-  bottom: calc(var(--safe-b) + 6px);
+  /* Sprint 12: sticky yerine fixed — nav scroll'la birlikte hareket
+     etmez, ekranın altına çakılı kalır. .app içeriği yine max-width
+     680 ile sınırlı olduğundan tabs'ı da aynı sınırda ortala. */
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--safe-b) + 8px);
+  max-width: 648px;        /* 680 - 2x16 padding */
+  margin: 0 auto;
+  z-index: 50;
 }
 
 .tabs button {
@@ -1310,15 +1317,14 @@ button { cursor: pointer; border: none; background: none; }
   width: 100%;
 }
 
-/* Eşleşme yok — küçük gri ipucu satırı */
+/* Eşleşme yok — küçük gri ipucu satırı.
+   Sprint 12: aurora padding-frame'i kaldırıldı (kareli pembe çerçeve
+   yaratıyordu). Hint kart tek parça, çerçevesiz. */
 .banner-hint-wrap {
   position: relative;
-  overflow: hidden;
-  border-radius: var(--r-md);
-  padding: 4px;
   margin-bottom: 16px;
 }
-/* hint içeriği aurora arka katmanın önünde */
+/* hint içeriği aurora arka katmanın önünde — geriye uyumluluk için */
 .banner-hint-wrap > :not(.aurora-bg) { position: relative; z-index: 1; }
 .banner-hint {
   display: flex;
@@ -1331,12 +1337,23 @@ button { cursor: pointer; border: none; background: none; }
   border-radius: var(--r-md);
   padding: 10px 14px;
 }
+/* Sprint 12: refresh butonu daha soluk — iconbtn'in koyu/dolu zemini
+   yerine transparan ipucu satıra gömülmüş bir buton hissi. */
 .banner-refresh {
   width: 34px; height: 34px;
-  font-size: 15px;
   flex: 0 0 auto;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--ink-faint);
+  border-radius: var(--r-md);
 }
+.banner-refresh:hover { background: rgba(213,75,144,.10) !important; color: var(--accent); }
+.banner-refresh:active { transform: scale(.94); }
 .banner-refresh:disabled { opacity: .5; pointer-events: none; }
+.banner-refresh .spin { display: inline-block; }
+/* Hint-wrap içindeki aurora-bg artık görsel çerçeve yaratmıyor olsa da
+   görünmesin diye söndür (eşleşmesiz durumda dekoratif değil). */
+.banner-hint-wrap .aurora-bg { display: none; }
 .banner-geo-link {
   display: block;
   margin-top: 8px;
@@ -1951,12 +1968,23 @@ button { cursor: pointer; border: none; background: none; }
   padding: 14px 16px;
   min-height: 84px;
 }
+/* Sprint 12: SVG ikona geçti — yumuşak accent zeminli yuvarlak tile */
 .streak-box .streak-emoji {
-  font-size: 32px;
-  filter: drop-shadow(0 0 4px rgba(213, 75, 144, .35));
+  width: 46px; height: 46px;
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  filter: drop-shadow(0 2px 6px rgba(213, 75, 144, .18));
 }
+.streak-box .streak-emoji .icon { width: 26px; height: 26px; }
 .streak-box.zero { opacity: .65; }
-.streak-box.zero .streak-emoji { filter: grayscale(.6); }
+.streak-box.zero .streak-emoji {
+  background: var(--paper-sunk);
+  color: var(--ink-faint);
+  filter: none;
+}
 .streak-box .streak-text { line-height: 1.1; }
 .streak-num {
   font-family: var(--font-serif);
@@ -1998,7 +2026,14 @@ button { cursor: pointer; border: none; background: none; }
   align-items: center;
   gap: 8px;
 }
-.goal-emoji { font-size: 22px; }
+.goal-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  margin-right: 2px;
+}
+.goal-emoji .icon { width: 22px; height: 22px; }
 .goal-frac {
   font-family: var(--font-serif);
   font-size: 22px;
@@ -2828,7 +2863,9 @@ body.anim-off .tap-hint { animation: none; }
    son öğesi nav'ın üstünde tam görünsün diye .content'e padding ekle.
    ~44px nav + 6px margin-top + safe-area = güvenli sürtünmesiz alan. */
 .content {
-  padding-bottom: calc(var(--safe-b) + 76px);
+  /* Sprint 12: tabs fixed olduğu için içerik onun altına geçmesin diye
+     ~58px nav yüksekliği + 16px boşluk + safe-area */
+  padding-bottom: calc(var(--safe-b) + 92px);
 }
 /* Full-bleed sayfalarda (study/challenge) .app padding'i 0 — orada
    .content'e ihtiyaç yok, içerideki ekran kendi düzenini yönetir. */
@@ -2997,7 +3034,13 @@ body.anim-off .theme-toggle.is-dark .tt-moon { transform: none; }
     rgba(244, 197, 65, .08));
   border-color: rgba(213, 75, 144, .28);
 }
-.streak-box.zero .streak-emoji { filter: none; opacity: .9; }
+.streak-box.zero .streak-emoji {
+  /* Sıfır seri: tile yine accent (davetkar) */
+  background: var(--accent-soft);
+  color: var(--accent);
+  filter: none;
+  opacity: 1;
+}
 .streak-box.zero .streak-zero-msg {
   color: var(--ink);
   font-weight: 600;

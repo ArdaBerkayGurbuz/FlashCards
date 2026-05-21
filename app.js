@@ -3174,7 +3174,7 @@
         className: 'streak-box' + (streak === 0 ? ' zero' : ''),
         role: 'group', 'aria-label': 'Çalışma serisi'
       },
-        h('div', { className: 'streak-emoji' }, '🔥'),
+        h('div', { className: 'streak-emoji' }, IconEl('fire', 28)),
         h('div', { className: 'streak-text' },
           streak === 0
             ? h('div', { className: 'streak-zero-msg' }, 'Bugün başla!')
@@ -3190,7 +3190,7 @@
         'aria-label': 'Günlük hedef ayarı'
       },
         h('div', { className: 'goal-top' },
-          h('span', { className: 'goal-emoji' }, '🎯'),
+          h('span', { className: 'goal-emoji' }, IconEl('target', 22)),
           done
             ? h('span', { className: 'goal-done-text' }, '✓ Hedef tamam! 🎉')
             : h('span', { className: 'goal-frac' },

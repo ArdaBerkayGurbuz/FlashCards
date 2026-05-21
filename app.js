@@ -1027,6 +1027,30 @@
     function onBackdrop(e) {
       if (e.target === e.currentTarget && props.onClose) props.onClose();
     }
+    // Sprint 12: modal açıkken arka sayfayı kilitle (iOS scroll'u
+    // modalın arkasında kaymasın); ayrıca input'a focus geldiğinde
+    // klavye açılırsa o input'u görünür alana kaydır.
+    useEffect(function () {
+      var prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      function onFocus(e) {
+        var tgt = e.target;
+        if (!tgt || !tgt.tagName) return;
+        var tag = tgt.tagName.toUpperCase();
+        if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return;
+        // iOS klavye açıldıktan sonra (250ms) hedefi görünür alana al
+        setTimeout(function () {
+          try { tgt.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+          catch (e2) {}
+        }, 280);
+      }
+      document.addEventListener('focusin', onFocus);
+      return function () {
+        document.body.style.overflow = prevOverflow;
+        document.removeEventListener('focusin', onFocus);
+      };
+    }, []);
+
     return h('div', { className: 'modal-backdrop', onClick: onBackdrop },
       h('div', { className: 'modal', role: 'dialog', 'aria-modal': 'true' },
         h('h3', null, props.title),
@@ -1076,6 +1100,8 @@
     fire:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5c0 3 2 4 3.5 6 1.4 1.8 2.5 3.5 2.5 5.5a6 6 0 0 1-12 0c0-2 1-3.5 2-4.5 0 1.6 1 2.5 2 2.5 0-2.5-1-3.5-1-5.5 0-1.6 1.5-3 3-4z"/><path d="M12 21a3 3 0 0 0 3-3c0-1.2-.6-2-1.3-2.7-.3.7-.7 1.2-1.7 1.2-1.5 0-2-1.3-2-2.5-.5.5-1 1.5-1 2.7A2 2 0 0 0 12 21z" fill="currentColor" fill-opacity=".18"/></svg>',
     target:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>',
     note:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>',
+    bell:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+    locate:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/></svg>',
 
     /* === Sprint 10: bağlam kategori ikonları === */
     coffee:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a3 3 0 0 1 0 6h-1"/><path d="M3 8h15v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><line x1="6" y1="2" x2="6" y2="5"/><line x1="10" y1="2" x2="10" y2="5"/><line x1="14" y1="2" x2="14" y2="5"/></svg>',
@@ -3029,7 +3055,8 @@
       // Konum
       h('div', { className: 'ctx-section' },
         h('div', { className: 'ctx-sec-head' },
-          h('span', null, '📍 Konum'),
+          h('span', { className: 'ctx-sec-title' },
+            IconEl('pin', 18), h('span', null, ' Konum')),
           h('button', {
             className: 'toggle-sw' + (f.locOn ? ' on' : ''),
             role: 'switch', 'aria-checked': f.locOn ? 'true' : 'false',
@@ -3041,9 +3068,12 @@
           ? h('div', { className: 'ctx-sec-hint' }, 'Konum eklemek için aç')
           : h('div', null,
               h('button', {
-                className: 'btn ghost', type: 'button',
+                className: 'btn ghost btn-icon-label', type: 'button',
                 disabled: f.locBusy, onClick: useMyLocation
-              }, f.locBusy ? 'Konum alınıyor…' : '📍 Mevcut konumumu kullan'),
+              }, f.locBusy
+                ? h('span', null, 'Konum alınıyor…')
+                : h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '6px' } },
+                    IconEl('locate', 16), h('span', null, 'Mevcut konumumu kullan'))),
               f.locError
                 ? h('div', { className: 'ctx-warn' },
                     f.locError,
@@ -3078,7 +3108,8 @@
       // Zaman
       h('div', { className: 'ctx-section' },
         h('div', { className: 'ctx-sec-head' },
-          h('span', null, '⏰ Zaman aralığı'),
+          h('span', { className: 'ctx-sec-title' },
+            IconEl('clock', 18), h('span', null, ' Zaman aralığı')),
           h('button', {
             className: 'toggle-sw' + (f.timeOn ? ' on' : ''),
             role: 'switch', 'aria-checked': f.timeOn ? 'true' : 'false',
@@ -3117,7 +3148,8 @@
       // Bildirim ayarları
       h('div', { className: 'ctx-section' },
         h('div', { className: 'ctx-sec-head' },
-          h('span', null, '🔔 Bildirim açık'),
+          h('span', { className: 'ctx-sec-title' },
+            IconEl('bell', 18), h('span', null, ' Bildirim açık')),
           h('button', {
             className: 'toggle-sw' + (f.notif ? ' on' : ''),
             role: 'switch', 'aria-checked': f.notif ? 'true' : 'false',
@@ -3148,12 +3180,19 @@
       }) : null,
       warn ? h('div', { className: 'ctx-warn' }, warn) : null,
       // Alt aksiyon barı
-      h('div', { className: 'modal-actions', style: { marginTop: '20px' } },
-        h('button', { className: 'btn ghost', onClick: props.onCancel }, 'İptal'),
+      // Sprint 12: Sil butonu artık SVG ikon + zarif stil (ctx-delete)
+      h('div', { className: 'ctx-actions' },
         existing
-          ? h('button', { className: 'linkbtn danger', onClick: props.onDelete }, '🗑️ Sil')
+          ? h('button', {
+              className: 'btn danger-ghost btn-icon-label',
+              type: 'button',
+              onClick: props.onDelete
+            }, IconEl('trash', 16), h('span', null, 'Bağlamı sil'))
           : null,
-        h('button', { className: 'btn primary', disabled: !canSave, onClick: save }, 'Kaydet')
+        h('div', { className: 'ctx-actions-main' },
+          h('button', { className: 'btn ghost', onClick: props.onCancel }, 'İptal'),
+          h('button', { className: 'btn primary', disabled: !canSave, onClick: save }, 'Kaydet')
+        )
       )
     );
   }

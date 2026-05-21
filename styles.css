@@ -2158,3 +2158,243 @@ button { cursor: pointer; border: none; background: none; }
   .rs-num { font-size: 22px; }
 }
 
+/* === Sprint 8: Challenge === */
+
+:root {
+  --duel-accent: #E55A3C;
+  --duel-accent-2: #FF8A5B;
+}
+[data-theme="light"] {
+  --duel-accent: #D54C2E;
+  --duel-accent-2: #E5733E;
+}
+
+/* Düello düğmesi (deste detay + modal) */
+.btn.duel {
+  background: linear-gradient(135deg, var(--duel-accent), var(--duel-accent-2));
+  color: #fff;
+  border: none;
+  box-shadow: 0 6px 18px rgba(229, 90, 60, 0.35);
+}
+.btn.duel:hover { filter: brightness(1.05); }
+.btn.duel:disabled {
+  background: #555;
+  box-shadow: none;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Düello çalışma modu: üst banner + kronometre */
+.study.challenge-mode .progress-track { display: none; }
+.challenge-timer {
+  flex: 1;
+  text-align: center;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--duel-accent);
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
+.challenge-banner-mini {
+  margin: 8px 12px 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--duel-accent), var(--duel-accent-2));
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.4px;
+  align-self: center;
+  display: inline-block;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+.challenge-rate .rate.good {
+  background: linear-gradient(135deg, var(--duel-accent), var(--duel-accent-2));
+  color: #fff;
+}
+
+/* Bitiş ara ekranı */
+.challenge-finishing {
+  padding: 40px 16px;
+  text-align: center;
+  opacity: 0.8;
+  font-size: 16px;
+}
+
+/* Intro: "Arda sana meydan okuyor" */
+.challenge-intro {
+  padding: 28px 20px;
+  max-width: 480px;
+  margin: 0 auto;
+  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.ci-icon {
+  font-size: 64px;
+  margin-bottom: 12px;
+  animation: ci-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ci-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.ci-title {
+  font-size: 26px;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
+.ci-text {
+  font-size: 16px;
+  line-height: 1.5;
+  opacity: 0.85;
+  margin-bottom: 20px;
+}
+.ci-actions { display: flex; flex-direction: column; gap: 4px; }
+
+/* Sonuç ekranı (challenger + friend) */
+.challenge-result {
+  padding: 28px 20px;
+  max-width: 520px;
+  margin: 0 auto;
+  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.cr-icon {
+  font-size: 56px;
+  margin-bottom: 8px;
+}
+.cr-icon.big {
+  font-size: 76px;
+  margin-bottom: 12px;
+}
+.challenge-result.cr-win .cr-icon.big {
+  animation: cr-bounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes cr-bounce {
+  0% { transform: scale(0.4) rotate(-12deg); opacity: 0; }
+  60% { transform: scale(1.2) rotate(6deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); }
+}
+.cr-title {
+  font-size: 30px;
+  margin: 0 0 8px;
+  color: var(--ink);
+  letter-spacing: 0.5px;
+}
+.challenge-result.cr-win .cr-title { color: var(--duel-accent); }
+.cr-score {
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--accent);
+  margin: 8px 0 4px;
+}
+.cr-sub {
+  font-size: 16px;
+  opacity: 0.75;
+  margin-bottom: 12px;
+}
+
+/* Karşılaştırma satırları */
+.cr-vs {
+  background: var(--paper);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 16px 0 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .cr-vs {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+.cr-vs-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 0;
+}
+.cr-vs-row + .cr-vs-row {
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+[data-theme="light"] .cr-vs-row + .cr-vs-row {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+.cr-vs-name {
+  text-align: left;
+  font-weight: 600;
+  color: var(--ink);
+}
+.cr-vs-row.mine .cr-vs-name { color: var(--accent); }
+.cr-vs-row.theirs .cr-vs-name { color: var(--duel-accent); }
+.cr-vs-score {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  font-size: 18px;
+}
+.cr-vs-time {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.cr-no-deck {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 12px;
+  margin: 12px 0;
+}
+[data-theme="light"] .cr-no-deck {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+.cr-no-deck-text {
+  margin-bottom: 10px;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+/* Paylaşım modalı */
+.share-lead {
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0 0 14px;
+  opacity: 0.9;
+}
+.share-actions { display: flex; flex-direction: column; }
+
+/* Düello istatistikleri kartı (Stats sekmesi) */
+.duel-stats-card {
+  background: linear-gradient(135deg,
+    rgba(229, 90, 60, 0.12), rgba(255, 138, 91, 0.06));
+  border: 1px solid rgba(229, 90, 60, 0.25);
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+[data-theme="light"] .duel-stats-card {
+  background: linear-gradient(135deg,
+    rgba(213, 76, 46, 0.10), rgba(229, 115, 62, 0.05));
+  border-color: rgba(213, 76, 46, 0.25);
+}
+
+/* Mobil ayarlamalar */
+@media (max-width: 420px) {
+  .cr-title { font-size: 26px; }
+  .cr-score { font-size: 40px; }
+  .cr-icon.big { font-size: 64px; }
+  .ci-icon { font-size: 56px; }
+  .ci-title { font-size: 22px; }
+  .cr-vs-row { grid-template-columns: 1fr auto; row-gap: 4px; }
+  .cr-vs-time { grid-column: 2; justify-self: end; }
+}
+

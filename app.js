@@ -438,6 +438,77 @@
     return a;
   }
 
+  /* ===== Sprint 8: Asenkron Challenge (meydan okuma) ===== */
+
+  var CHALLENGE_VERSION = 1;
+  var CHALLENGE_MAX_CARDS = 12;
+  var CHALLENGE_URL_SAFE_LIMIT = 1900;
+  var DUELS_KEY = 'flashcards.duels.v1';
+  var LAST_CHALLENGER_NAME_KEY = 'flashcards.lastChallengerName';
+
+  // UTF-8 güvenli base64 (Türkçe karakter destekli) + URL-safe varyant
+  function encodeChallenge(ch) {
+    var json = JSON.stringify(ch);
+    var b64 = btoa(unescape(encodeURIComponent(json)));
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+  function decodeChallenge(encoded) {
+    var b64 = String(encoded || '').replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var json = decodeURIComponent(escape(atob(b64)));
+    return JSON.parse(json);
+  }
+  function buildChallengeUrl(ch) {
+    var base = window.location.origin + window.location.pathname;
+    return base + '#challenge=' + encodeChallenge(ch);
+  }
+
+  function emptyDuelsState() {
+    return {
+      sent: [],
+      received: [],
+      stats: { totalPlayed: 0, wins: 0, losses: 0, draws: 0 }
+    };
+  }
+  function loadDuelsState() {
+    try {
+      var raw = localStorage.getItem(DUELS_KEY);
+      if (!raw) return emptyDuelsState();
+      var p = JSON.parse(raw);
+      if (!p || typeof p !== 'object') return emptyDuelsState();
+      var st = emptyDuelsState();
+      if (Array.isArray(p.sent)) st.sent = p.sent;
+      if (Array.isArray(p.received)) st.received = p.received;
+      if (p.stats && typeof p.stats === 'object') {
+        st.stats.totalPlayed = Number(p.stats.totalPlayed) || 0;
+        st.stats.wins = Number(p.stats.wins) || 0;
+        st.stats.losses = Number(p.stats.losses) || 0;
+        st.stats.draws = Number(p.stats.draws) || 0;
+      }
+      return st;
+    } catch (e) {
+      console.warn('Düello durumu okunamadı:', e);
+      return emptyDuelsState();
+    }
+  }
+  var duelsSaveTimer = null;
+  function persistDuels(state) {
+    if (duelsSaveTimer) clearTimeout(duelsSaveTimer);
+    duelsSaveTimer = setTimeout(function () {
+      try { localStorage.setItem(DUELS_KEY, JSON.stringify(state)); }
+      catch (e) { console.error('Düello kaydedilemedi:', e); }
+    }, 180);
+  }
+
+  // Kazanan mantığı: doğru sayısı desc → süre asc → berabere
+  function duelOutcome(mine, theirs) {
+    if (mine.score > theirs.score) return 'win';
+    if (mine.score < theirs.score) return 'loss';
+    if (mine.time < theirs.time) return 'win';
+    if (mine.time > theirs.time) return 'loss';
+    return 'draw';
+  }
+
   /* ===== Sprint 3: Tetikleme yardımcıları (saf, modül seviyesi) ===== */
 
   // İki koordinat arası mesafe (metre) — Haversine
@@ -997,7 +1068,15 @@
               className: 'btn primary full lg',
               disabled: deck.cards.length === 0,
               onClick: function () { props.onStudy(deck.id); }
-            }, '▶  Bu desteyi çalış')
+            }, '▶  Bu desteyi çalış'),
+            // Sprint 8: Meydan Oku
+            h('div', { className: 'spacer-sm' }),
+            h('button', {
+              className: 'btn duel full lg',
+              disabled: deck.cards.length < 2,
+              title: deck.cards.length < 2 ? 'En az 2 kart gerekli' : '',
+              onClick: function () { props.onChallenge && props.onChallenge(deck.id); }
+            }, '⚔️  Meydan Oku')
           )
     );
   }
@@ -1220,6 +1299,332 @@
     );
   }
 
+  /* ===== Sprint 8: Challenge bileşenleri ===== */
+
+  // Meydan oku başlatma modalı (deste detayından)
+  function ChallengeSetupModal(props) {
+    var initialName = '';
+    try { initialName = localStorage.getItem(LAST_CHALLENGER_NAME_KEY) || ''; } catch (e) {}
+    var nameH = useState(initialName);
+    var name = nameH[0], setName = nameH[1];
+    var maxCards = Math.min(props.deckSize, CHALLENGE_MAX_CARDS);
+    var presetOptions = [5, 10, 15].filter(function (n) { return n <= maxCards; });
+    if (presetOptions.length === 0) presetOptions = [maxCards];
+    var initN = presetOptions.indexOf(10) >= 0 ? 10 : presetOptions[0];
+    var nH = useState(initN);
+    var n = nH[0], setN = nH[1];
+    var inputRef = useRef(null);
+    useEffect(function () {
+      if (inputRef.current) inputRef.current.focus();
+    }, []);
+    function submit() {
+      var nm = (name || '').trim().slice(0, 30);
+      try {
+        if (nm) localStorage.setItem(LAST_CHALLENGER_NAME_KEY, nm);
+      } catch (e) {}
+      props.onStart({ name: nm, cardCount: Math.min(n, maxCards) });
+    }
+    return h(Modal, { title: '⚔️ Meydan Oku', onClose: props.onClose },
+      h('div', { className: 'field' },
+        h('label', null, 'Adın'),
+        h('input', {
+          ref: inputRef, type: 'text', value: name, maxLength: 30,
+          placeholder: 'Örn. Arda',
+          onChange: function (e) { setName(e.target.value); },
+          onKeyDown: function (e) { if (e.key === 'Enter') submit(); }
+        }),
+        h('div', { className: 'help', style: { marginTop: '6px', opacity: 0.7, fontSize: '13px' } },
+          'Arkadaşın seni bu adla görecek')
+      ),
+      h('div', { className: 'field', style: { marginTop: '12px' } },
+        h('label', null, 'Kaç kart?'),
+        h('div', { className: 'goal-presets' },
+          presetOptions.map(function (opt) {
+            return h('button', {
+              key: opt, type: 'button',
+              className: 'goal-chip' + (n === opt ? ' sel' : ''),
+              onClick: function () { setN(opt); }
+            }, opt + ' kart');
+          })
+        ),
+        maxCards < 15
+          ? h('div', { className: 'help', style: { marginTop: '6px', opacity: 0.7, fontSize: '13px' } },
+              'Bu destede ' + props.deckSize + ' kart var; en fazla ' + maxCards + ' seçilebilir.')
+          : null
+      ),
+      h('div', { className: 'modal-actions' },
+        h('button', { className: 'btn ghost', onClick: props.onClose }, 'Vazgeç'),
+        h('button', { className: 'btn duel', onClick: submit }, '⚔️ Başla')
+      )
+    );
+  }
+
+  // Düello: kartları çöz (kronometre + Bildim/Bilemedim, basit, side-effect yok)
+  function ChallengeStudyView(props) {
+    var cards = props.cards;
+    var stH = useState(function () {
+      return { idx: 0, flipped: false, correct: 0, done: false };
+    });
+    var s = stH[0], setS = stH[1];
+
+    var startedAtRef = useRef(Date.now());
+    var elapsedH = useState(0);
+    var elapsed = elapsedH[0], setElapsed = elapsedH[1];
+    useEffect(function () {
+      if (s.done) return;
+      var t = setInterval(function () {
+        setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
+      }, 1000);
+      return function () { clearInterval(t); };
+    }, [s.done]);
+
+    function answer(isCorrect) {
+      setS(function (p) {
+        var nextIdx = p.idx + 1;
+        var nextCorrect = p.correct + (isCorrect ? 1 : 0);
+        if (nextIdx >= cards.length) {
+          var total = cards.length;
+          var time = Math.floor((Date.now() - startedAtRef.current) / 1000);
+          setTimeout(function () {
+            props.onFinish({ score: nextCorrect, total: total, time: time });
+          }, 0);
+          return { idx: nextIdx, flipped: false, correct: nextCorrect, done: true };
+        }
+        return { idx: nextIdx, flipped: false, correct: nextCorrect, done: false };
+      });
+    }
+    function flip() {
+      setS(function (p) { return Object.assign({}, p, { flipped: !p.flipped }); });
+    }
+
+    useEffect(function () {
+      function onKey(e) {
+        if (s.done) return;
+        if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); flip(); }
+        else if (s.flipped && e.key === '1') answer(true);
+        else if (s.flipped && e.key === '2') answer(false);
+      }
+      window.addEventListener('keydown', onKey);
+      return function () { window.removeEventListener('keydown', onKey); };
+    }, [s.flipped, s.done]);
+
+    if (s.done) {
+      // Sonuç ekranı dışarıdan render edilir (onFinish ile)
+      return h('div', { className: 'study challenge-mode' },
+        h('div', { className: 'challenge-finishing' }, 'Skor hesaplanıyor…')
+      );
+    }
+
+    var card = cards[s.idx];
+    var mmss = function (sec) {
+      var m = Math.floor(sec / 60), r = sec % 60;
+      return (m > 0 ? m + ':' + (r < 10 ? '0' : '') + r : r + ' sn');
+    };
+
+    return h('div', { className: 'study challenge-mode' },
+      h('div', { className: 'study-top' },
+        h('button', {
+          className: 'iconbtn',
+          onClick: props.onExit, 'aria-label': 'Düellodan çık'
+        }, '✕'),
+        h('div', { className: 'challenge-timer' }, '⏱ ' + mmss(elapsed)),
+        h('div', { className: 'progress-count' }, (s.idx + 1) + ' / ' + cards.length)
+      ),
+      h('div', { className: 'challenge-banner-mini' }, '⚔️ Düello modu'),
+      h('div', { className: 'flip-area', onClick: flip },
+        h('div', { className: 'flashcard' + (s.flipped ? ' flipped' : ''), role: 'button' },
+          h('div', { className: 'face front' },
+            h('div', { className: 'tag' }, 'SORU'),
+            h('div', { className: 'text' }, card ? card.q : ''),
+            h('div', { className: 'hint' }, 'Cevabı görmek için dokun')
+          ),
+          h('div', { className: 'face back' },
+            h('div', { className: 'tag' }, 'CEVAP'),
+            h('div', { className: 'text' }, card ? card.a : '')
+          )
+        )
+      ),
+      s.flipped
+        ? h('div', { className: 'rate-row challenge-rate' },
+            h('button', {
+              className: 'rate bad',
+              onClick: function (e) { e.stopPropagation(); answer(false); }
+            }, h('span', { className: 'ic' }, '✕'), h('span', null, 'Bilemedim')),
+            h('button', {
+              className: 'rate good',
+              onClick: function (e) { e.stopPropagation(); answer(true); }
+            }, h('span', { className: 'ic' }, '✓'), h('span', null, 'Bildim'))
+          )
+        : h('div', { className: 'tap-hint' }, 'Karta dokun, sonra cevapla')
+    );
+  }
+
+  // B (meydan okunan) → intro: "Arda sana meydan okuyor"
+  function ChallengeIntroView(props) {
+    var ch = props.challenge;
+    var name = (ch.ch || '').trim() || 'Bir arkadaşın';
+    var deckName = (ch.dn || '').trim() || 'bir deste';
+    return h('div', { className: 'challenge-intro' },
+      h('div', { className: 'ci-icon' }, '⚔️'),
+      h('h2', { className: 'ci-title' }, name + ' sana meydan okuyor!'),
+      h('p', { className: 'ci-text' },
+        '“' + deckName + '” destesinde ',
+        h('strong', null, ch.sc + '/' + ch.n),
+        ' yapmış. Sıra sende — ',
+        h('strong', null, ch.n + ' kart'),
+        ', geçebilir misin?'),
+      h('div', { className: 'ci-actions' },
+        h('button', { className: 'btn duel full lg', onClick: props.onStart },
+          '⚔️ Kabul Et ve Başla'),
+        h('div', { className: 'spacer-sm' }),
+        h('button', { className: 'btn ghost full', onClick: props.onSkip },
+          'Şimdi Değil')
+      )
+    );
+  }
+
+  // Paylaşım modalı (challenger sonucu)
+  function ChallengeShareModal(props) {
+    var url = props.url;
+    var msg = 'Kelime düellosu! ⚔️ Ben ' + props.score + '/' + props.total +
+      ' yaptım, geçebilir misin?\n👉 ' + url;
+    function shareWhatsApp() {
+      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    }
+    function copy() {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () {
+          props.onCopied();
+        }, function () {
+          props.onCopied(false);
+        });
+      } else {
+        // fallback: gizli textarea
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = url; document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); document.body.removeChild(ta);
+          props.onCopied();
+        } catch (e) { props.onCopied(false); }
+      }
+    }
+    function nativeShare() {
+      if (navigator.share) {
+        navigator.share({
+          title: 'Kelime Düellosu',
+          text: 'Beni geçebilir misin? ⚔️',
+          url: url
+        }).catch(function () {});
+      }
+    }
+    return h(Modal, { title: 'Meydan okuman hazır! 🔥', onClose: props.onClose },
+      h('p', { className: 'share-lead' },
+        '“' + props.deckName + '” destesinde ',
+        h('strong', null, props.score + '/' + props.total),
+        ' yaptın. Arkadaşların geçebilir mi?'),
+      h('div', { className: 'share-actions' },
+        h('button', { className: 'btn duel full', onClick: shareWhatsApp },
+          '📱  WhatsApp\'ta Paylaş'),
+        h('div', { className: 'spacer-sm' }),
+        h('button', { className: 'btn primary full', onClick: copy },
+          '🔗  Linki Kopyala'),
+        navigator.share
+          ? h('div', null,
+              h('div', { className: 'spacer-sm' }),
+              h('button', { className: 'btn ghost full', onClick: nativeShare },
+                '📤  Paylaş (sistem)'))
+          : null
+      ),
+      h('div', { className: 'spacer-sm' }),
+      h('button', { className: 'linkbtn', onClick: props.onClose }, 'Kapat')
+    );
+  }
+
+  // Düello sonuç ekranı — challenger ya da friend
+  function ChallengeResultView(props) {
+    // mode: 'challenger' (paylaşılacak) | 'friend' (karşılaştırma)
+    var mode = props.mode;
+    var mine = props.mine; // {score,total,time}
+    var theirs = props.theirs; // null veya {score, total, time, name}
+    var deckName = props.deckName;
+    var shareOpenH = useState(false);
+    var shareOpen = shareOpenH[0], setShareOpen = shareOpenH[1];
+    var copiedToastRef = useRef(null);
+
+    function mmss(sec) {
+      sec = Number(sec) || 0;
+      var m = Math.floor(sec / 60), r = sec % 60;
+      return (m > 0 ? m + ':' + (r < 10 ? '0' : '') + r : r + ' sn');
+    }
+
+    if (mode === 'challenger') {
+      return h('div', { className: 'challenge-result' },
+        h('div', { className: 'cr-icon' }, '⭐'),
+        h('h2', { className: 'cr-title' }, 'Skorun hazır'),
+        h('div', { className: 'cr-score' }, mine.score + ' / ' + mine.total),
+        h('div', { className: 'cr-sub' }, '⏱ ' + mmss(mine.time)),
+        h('div', { className: 'spacer-sm' }),
+        h('button', {
+          className: 'btn duel full lg',
+          onClick: function () { setShareOpen(true); }
+        }, '⚔️  Arkadaşına Meydan Oku'),
+        h('div', { className: 'spacer-sm' }),
+        h('button', { className: 'btn ghost full', onClick: props.onExit }, 'Ana Ekran'),
+        shareOpen
+          ? h(ChallengeShareModal, {
+              url: props.shareUrl,
+              score: mine.score, total: mine.total,
+              deckName: deckName,
+              onClose: function () { setShareOpen(false); },
+              onCopied: function (ok) {
+                setShareOpen(false);
+                if (props.onToast) props.onToast(ok === false ? 'Kopyalanamadı' : 'Link kopyalandı! 🔗');
+              }
+            })
+          : null
+      );
+    }
+
+    // friend mode
+    var outcome = duelOutcome(
+      { score: mine.score, time: mine.time },
+      { score: theirs.score, time: theirs.time }
+    );
+    var titleTxt = outcome === 'win' ? 'KAZANDIN!' :
+                   outcome === 'loss' ? 'Bu sefer kaybettin' : 'BERABERE';
+    var icon = outcome === 'win' ? '🏆' : outcome === 'loss' ? '💪' : '🤝';
+    var cls = 'challenge-result cr-' + outcome;
+
+    return h('div', { className: cls },
+      h('div', { className: 'cr-icon big' }, icon),
+      h('h2', { className: 'cr-title' }, titleTxt),
+      h('div', { className: 'cr-vs' },
+        h('div', { className: 'cr-vs-row mine' },
+          h('span', { className: 'cr-vs-name' }, 'Sen'),
+          h('span', { className: 'cr-vs-score' }, mine.score + ' / ' + mine.total),
+          h('span', { className: 'cr-vs-time' }, '⏱ ' + mmss(mine.time))
+        ),
+        h('div', { className: 'cr-vs-row theirs' },
+          h('span', { className: 'cr-vs-name' }, theirs.name || 'Rakip'),
+          h('span', { className: 'cr-vs-score' }, theirs.score + ' / ' + theirs.total),
+          h('span', { className: 'cr-vs-time' }, '⏱ ' + mmss(theirs.time))
+        )
+      ),
+      h('div', { className: 'spacer-sm' }),
+      props.hasDeck
+        ? h('button', { className: 'btn duel full lg', onClick: props.onRevanche },
+            '⚔️  Rövanş İste')
+        : h('div', { className: 'cr-no-deck' },
+            h('div', { className: 'cr-no-deck-text' },
+              'Rövanş için “' + deckName + '” destesi sende yok.'),
+            h('button', { className: 'btn primary full', onClick: props.onDiscover },
+              'Keşfet’te ara')
+          ),
+      h('div', { className: 'spacer-sm' }),
+      h('button', { className: 'btn ghost full', onClick: props.onExit }, 'Ana Ekran')
+    );
+  }
+
   // ---------- İstatistik ekranı ----------
 
   function StatsView(props) {
@@ -1371,6 +1776,30 @@
               })
             )
           ),
+      // Sprint 8: Düello istatistikleri
+      (props.duels && props.duels.stats && props.duels.stats.totalPlayed > 0)
+        ? (function () {
+            var d = props.duels.stats;
+            var winPct = d.totalPlayed > 0 ? Math.round((d.wins / d.totalPlayed) * 100) : 0;
+            return h('div', { className: 'duel-stats-card', style: { marginTop: '16px' } },
+              h('div', { className: 'stats-card-head' }, '⚔️ Düello İstatistikleri'),
+              h('div', { className: 'rs-row' },
+                h('div', { className: 'rs-cell' },
+                  h('div', { className: 'rs-num' }, d.totalPlayed),
+                  h('div', { className: 'rs-lbl' }, 'toplam düello')
+                ),
+                h('div', { className: 'rs-cell' },
+                  h('div', { className: 'rs-num' }, winPct + '%'),
+                  h('div', { className: 'rs-lbl' }, 'galibiyet oranı')
+                ),
+                h('div', { className: 'rs-cell' },
+                  h('div', { className: 'rs-num' }, d.wins + '/' + d.losses + '/' + d.draws),
+                  h('div', { className: 'rs-lbl' }, 'G / M / B')
+                )
+              )
+            );
+          })()
+        : null,
       ctxActivity.length > 0
         ? h('div', { className: 'stats-list-card', style: { marginTop: '16px' } },
             h('div', { className: 'stats-card-head' }, 'Bağlam Aktivitesi (son 7 gün)'),
@@ -2414,6 +2843,10 @@
     var goalModalHook = useState(false);
     var goalModalOpen = goalModalHook[0], setGoalModalOpen = goalModalHook[1];
 
+    // Sprint 8: düello (challenge) durumu — gönderilen/alınan + özet
+    var duelsHook = useState(loadDuelsState);
+    var duels = duelsHook[0], setDuels = duelsHook[1];
+
     // Sprint 6: marketplace
     var mpStatusHook = useState('idle');   // idle|loading|ready|error|offline
     var mpStatus = mpStatusHook[0], setMpStatus = mpStatusHook[1];
@@ -2441,6 +2874,8 @@
     // her değişimde kaydet
     useEffect(function () { persist(state); }, [state]);
     useEffect(function () { persistContexts(ctxState); }, [ctxState]);
+    // Sprint 8: düello sonuçları
+    useEffect(function () { persistDuels(duels); }, [duels]);
 
     // Boot'ta bir kere: kırık (orphan) kart-bağlam linklerini sessizce temizle
     useEffect(function () { cleanupOrphanLinks(); }, []);
@@ -2499,6 +2934,34 @@
             }
           }
         }
+      } catch (e) {}
+    }, []);
+
+    // Sprint 8: #challenge=... hash'ı varsa challenge intro'ya götür (boot)
+    useEffect(function () {
+      try {
+        var hash = window.location.hash || '';
+        if (hash.indexOf('#challenge=') !== 0) return;
+        var encoded = hash.substring('#challenge='.length);
+        var ch;
+        try { ch = decodeChallenge(encoded); }
+        catch (parseErr) {
+          showToast('Geçersiz meydan okuma linki.');
+          window.history.replaceState(null, '', window.location.pathname);
+          return;
+        }
+        // Hash'ı temizle ki yenileme tekrar tetiklemesin
+        window.history.replaceState(null, '', window.location.pathname);
+
+        if (!ch || ch.v !== CHALLENGE_VERSION) {
+          showToast('Bu link daha yeni bir sürümle oluşturulmuş.');
+          return;
+        }
+        if (!Array.isArray(ch.cards) || ch.cards.length === 0) {
+          showToast('Bu meydan okuma boş görünüyor.');
+          return;
+        }
+        setRoute({ name: 'challengeIntro', challenge: ch });
       } catch (e) {}
     }, []);
 
@@ -2980,6 +3443,156 @@
       showToast('İstatistikler sıfırlandı');
     }
 
+    /* ===== Sprint 8: Düello (challenge) iş mantığı ===== */
+
+    // Deste detayından "⚔️ Meydan Oku" → ad/kart sayısı sor
+    function openChallengeSetup(deckId) {
+      var d = findDeck(deckId);
+      if (!d || d.cards.length < 2) return;
+      setModal({ type: 'challengeSetup', deckId: deckId });
+    }
+
+    // Meydan okuyan kartları çözmeye başlasın
+    function startChallengeAsChallenger(deckId, opts) {
+      var d = findDeck(deckId);
+      if (!d || d.cards.length === 0) return;
+      var max = Math.min(opts.cardCount || 10, CHALLENGE_MAX_CARDS, d.cards.length);
+      var picked = shuffle(d.cards).slice(0, max);
+      // Düello için kompakt kartlar (sadece q/a)
+      var compact = picked.map(function (c) { return { q: c.q || '', a: c.a || '' }; });
+      setModal(null);
+      setRoute({
+        name: 'challengePlay',
+        mode: 'challenger',
+        challengerName: (opts.name || '').trim(),
+        deckId: deckId,
+        deckName: d.name,
+        cards: compact,
+        sessionKey: uid()
+      });
+    }
+
+    // Çözme bitti — sonuç ekranına geç ve düello geçmişine yaz
+    function finishChallenge(result) {
+      // result: { score, total, time }
+      var r = route;
+      if (!r) return;
+      if (r.mode === 'challenger') {
+        // payload + URL hazırla; URL çok uzunsa uyarı
+        var payload = {
+          v: CHALLENGE_VERSION,
+          ch: (r.challengerName || '').slice(0, 30),
+          dn: (r.deckName || '').slice(0, 60),
+          sc: result.score,
+          tt: result.time,
+          n: result.total,
+          cards: r.cards
+        };
+        var url = buildChallengeUrl(payload);
+        var tooLong = url.length > CHALLENGE_URL_SAFE_LIMIT;
+
+        // Düello geçmişine ekle (sent)
+        setDuels(function (prev) {
+          var next = {
+            sent: prev.sent.concat([{
+              deckName: r.deckName,
+              score: result.score,
+              total: result.total,
+              timeSec: result.time,
+              date: todayStamp()
+            }]),
+            received: prev.received,
+            stats: prev.stats
+          };
+          return next;
+        });
+
+        setRoute({
+          name: 'challengeResult',
+          mode: 'challenger',
+          mine: result,
+          deckName: r.deckName,
+          shareUrl: url,
+          tooLong: tooLong
+        });
+        if (tooLong) showToast('Kartlar çok uzun, daha az kart seçmek gerekebilir.');
+      } else {
+        // friend — rakibin skoruyla karşılaştır
+        var theirs = {
+          name: (r.challengerName || '').trim() || 'Bir arkadaşın',
+          score: r.theirScore,
+          total: r.theirTotal,
+          time: r.theirTime
+        };
+        var outcome = duelOutcome(
+          { score: result.score, time: result.time },
+          { score: theirs.score, time: theirs.time }
+        );
+
+        // İstatistiklere ve received geçmişine yaz
+        setDuels(function (prev) {
+          var s = prev.stats;
+          var next = {
+            sent: prev.sent,
+            received: prev.received.concat([{
+              challengerName: theirs.name,
+              deckName: r.deckName || '',
+              myScore: result.score, theirScore: theirs.score,
+              myTime: result.time, theirTime: theirs.time,
+              won: outcome,
+              date: todayStamp()
+            }]),
+            stats: {
+              totalPlayed: s.totalPlayed + 1,
+              wins: s.wins + (outcome === 'win' ? 1 : 0),
+              losses: s.losses + (outcome === 'loss' ? 1 : 0),
+              draws: s.draws + (outcome === 'draw' ? 1 : 0)
+            }
+          };
+          return next;
+        });
+
+        // B'nin o deste cihazında var mı? (rövanş için isim eşleşmesi)
+        var ownsDeck = false;
+        var ownDeckId = null;
+        if (r.deckName) {
+          for (var i = 0; i < state.decks.length; i++) {
+            if (state.decks[i].name === r.deckName && state.decks[i].cards.length >= 2) {
+              ownsDeck = true;
+              ownDeckId = state.decks[i].id;
+              break;
+            }
+          }
+        }
+        setRoute({
+          name: 'challengeResult',
+          mode: 'friend',
+          mine: result,
+          theirs: theirs,
+          deckName: r.deckName || '',
+          hasDeck: ownsDeck,
+          ownDeckId: ownDeckId
+        });
+      }
+    }
+
+    // B (intro'da Kabul Et) → çözmeye başla
+    function acceptChallenge(challenge) {
+      setRoute({
+        name: 'challengePlay',
+        mode: 'friend',
+        challengerName: challenge.ch || '',
+        deckName: challenge.dn || '',
+        cards: challenge.cards.map(function (c) {
+          return { q: (c.f || c.q || ''), a: (c.b || c.a || '') };
+        }),
+        theirScore: Number(challenge.sc) || 0,
+        theirTotal: Number(challenge.n) || (challenge.cards ? challenge.cards.length : 0),
+        theirTime: Number(challenge.tt) || 0,
+        sessionKey: uid()
+      });
+    }
+
     // Bağlam seansı: global istatistiğe yaz, perDeck'e DOKUNMA
     // (kartlar karışık destelerden — tek deste'ye atfetmek yanlış olur)
     function finishContextSession(_ignoredDeckId, seen, correct) {
@@ -3416,6 +4029,17 @@
         );
       }
 
+      // Sprint 8: Meydan oku setup (ad + kart sayısı)
+      if (modal.type === 'challengeSetup') {
+        var chDeck = findDeck(modal.deckId);
+        if (!chDeck) { setModal(null); return null; }
+        return h(ChallengeSetupModal, {
+          deckSize: chDeck.cards.length,
+          onClose: function () { setModal(null); },
+          onStart: function (opts) { startChallengeAsChallenger(modal.deckId, opts); }
+        });
+      }
+
       // Sprint 6: indirilen deste için bağlam önerisi
       if (modal.type === 'mpContext') {
         function closeMp() {
@@ -3470,6 +4094,51 @@
         onFinish: finishOnboarding,
         onSample: createSampleDeck
       });
+    }
+
+    // Sprint 8: Challenge tam ekran modları (tab bar yok)
+    if (route.name === 'challengeIntro') {
+      var chIntro = route.challenge;
+      return h('div', { className: 'app', style: { padding: 0 } },
+        h(ChallengeIntroView, {
+          challenge: chIntro,
+          onStart: function () { acceptChallenge(chIntro); },
+          onSkip: function () { setRoute({ name: 'list' }); }
+        })
+      );
+    }
+    if (route.name === 'challengePlay') {
+      if (!route.cards || route.cards.length === 0) {
+        setRoute({ name: 'list' });
+        return null;
+      }
+      return h('div', { className: 'app', style: { padding: 0 } },
+        h(ChallengeStudyView, {
+          cards: route.cards,
+          key: route.sessionKey,
+          onExit: function () { setRoute({ name: 'list' }); },
+          onFinish: finishChallenge
+        })
+      );
+    }
+    if (route.name === 'challengeResult') {
+      return h('div', { className: 'app', style: { padding: 0 } },
+        h(ChallengeResultView, {
+          mode: route.mode,
+          mine: route.mine,
+          theirs: route.theirs || null,
+          deckName: route.deckName,
+          shareUrl: route.shareUrl,
+          hasDeck: !!route.hasDeck,
+          onExit: function () { setRoute({ name: 'list' }); },
+          onRevanche: function () {
+            if (!route.ownDeckId) { setRoute({ name: 'discover' }); return; }
+            openChallengeSetup(route.ownDeckId);
+          },
+          onDiscover: function () { setRoute({ name: 'discover' }); },
+          onToast: showToast
+        })
+      );
     }
 
     // Çalışma modu tam ekran (tab bar yok)
@@ -3604,7 +4273,9 @@
             onConfirm: function () { deleteCard(dd.id, c.id); }
           });
         },
-        onStudy: function (id) { setRoute({ name: 'study', deckId: id, sessionKey: uid() }); }
+        onStudy: function (id) { setRoute({ name: 'study', deckId: id, sessionKey: uid() }); },
+        // Sprint 8: deste detayından düello başlat
+        onChallenge: function (id) { openChallengeSetup(id); }
       });
     } else if (route.name === 'stats') {
       title = 'İstatistik';
@@ -3612,6 +4283,7 @@
         state: state,
         ctxState: ctxState,
         retention: retention,
+        duels: duels,
         onReset: function () {
           setModal({
             type: 'confirm',

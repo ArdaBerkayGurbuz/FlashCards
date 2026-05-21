@@ -590,6 +590,36 @@
   }
 
   // Ses olayı dispatcher (Sprint 9 ses paleti)
+  // Sprint 12: kısa noise burst (mekanik klik karakteri). centerHz +
+  // bandpass + hızlı exponential decay → "tık" tınısı.
+  function noiseBurst(durSec, centerHz, q, vol, startAt) {
+    var ctx = getAudioCtx();
+    if (!ctx) return;
+    try {
+      var t0 = ctx.currentTime + (startAt || 0);
+      var sr = ctx.sampleRate;
+      var len = Math.max(16, Math.floor(sr * durSec));
+      var buf = ctx.createBuffer(1, len, sr);
+      var data = buf.getChannelData(0);
+      // 8.uncu kuvvete decay edilen beyaz gürültü → keskin transient
+      for (var i = 0; i < len; i++) {
+        var t = i / len;
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 8);
+      }
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      var filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = centerHz || 2500;
+      filter.Q.value = q || 1.2;
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(vol || 0.22, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + durSec);
+      src.connect(filter); filter.connect(g); g.connect(ctx.destination);
+      src.start(t0); src.stop(t0 + durSec);
+    } catch (e) {}
+  }
+
   function playSound(kind) {
     if (!isSoundOn()) return;
     switch (kind) {
@@ -601,8 +631,21 @@
         tone(280, 0.18, 'triangle', 0.10);
         tone(200, 0.20, 'triangle', 0.10, 0.10);
         return;
+      case 'maybe':
+        // Sprint 12: kararsız için nötr iki ton (cezalandırıcı değil,
+        // ödüllendirici de değil — nötr/düşünceli his)
+        tone(440, 0.10, 'sine', 0.10);
+        tone(523, 0.10, 'sine', 0.10, 0.10);
+        return;
       case 'flip':
         tone(1200, 0.025, 'square', 0.04);
+        return;
+      case 'switch':
+        // Sprint 12: mekanik ışık anahtarı "tık-tak"
+        // Tık: yüksek frekanslı transient burst (klik karakteri)
+        // Tak: hafif düşük frekanslı gövde sesi
+        noiseBurst(0.018, 2600, 1.4, 0.30, 0);
+        noiseBurst(0.040, 380, 1.0, 0.16, 0.012);
         return;
       case 'streak':
         tone(523, 0.10, 'sine', 0.12);
@@ -1409,8 +1452,9 @@
     // advance+entering tetikle → eski/yeni bindirme (crossfade, boş an yok)
     var LEAVE_MS = 480, ENTER_MS = 620, SWAP_MS = 300;
 
-    // Sprint 9: cevap geri bildirimi (ses+haptik+flash sınıfı)
-    var fbSt = useState(null);  // null | 'good' | 'bad'
+    // Sprint 9 + Sprint 12: cevap geri bildirimi (ses+haptik+flash sınıfı)
+    // Sprint 12: 'maybe' artık nötr geri bildirim alır
+    var fbSt = useState(null);  // null | 'good' | 'maybe' | 'bad'
     var feedback = fbSt[0], setFeedback = fbSt[1];
     var fbTimer = useRef(null);
 
@@ -1455,16 +1499,19 @@
     function requestAdvance(rating) {
       if (anim !== 'idle') return; // çift-tık / geçiş ortası kilidi
 
-      // Sprint 9: ses + haptik + görsel geri bildirim (maybe sessiz)
+      // Sprint 12: tüm üç rating için ses + haptik + görsel geri bildirim
       if (rating === 'good') {
         playSound('correct'); haptic(15);
         if (animationsAllowed()) setFeedback('good');
       } else if (rating === 'bad') {
         playSound('wrong'); haptic([10, 50, 10]);
         if (animationsAllowed()) setFeedback('bad');
+      } else if (rating === 'maybe') {
+        playSound('maybe'); haptic([8, 40, 8]);
+        if (animationsAllowed()) setFeedback('maybe');
       }
       if (fbTimer.current) clearTimeout(fbTimer.current);
-      fbTimer.current = setTimeout(function () { setFeedback(null); }, 420);
+      fbTimer.current = setTimeout(function () { setFeedback(null); }, 480);
 
       setAnim('leaving');
       // SWAP_MS'te (çıkış bitmeden) advance + entering → eski/yeni
@@ -1556,7 +1603,9 @@
     }
     var wrapCls = 'card-anim-wrap' +
       (anim === 'leaving' ? ' leaving' : anim === 'entering' ? ' entering' : '') +
-      (feedback === 'good' ? ' fb-good' : feedback === 'bad' ? ' fb-bad' : '');
+      (feedback === 'good' ? ' fb-good'
+        : feedback === 'bad' ? ' fb-bad'
+        : feedback === 'maybe' ? ' fb-maybe' : '');
 
     return h('div', { className: 'study' },
       h('div', { className: 'study-top' },
@@ -3501,8 +3550,8 @@
     }, [theme]);
 
     function toggleTheme() {
-      // Sprint 11: tıklama sesi (mevcut Web Audio motoru)
-      playSound('flip');
+      // Sprint 12: gerçek mekanik ışık anahtarı "tık-tak"
+      playSound('switch');
       setTheme(function (t) { return t === 'light' ? 'dark' : 'light'; });
     }
 

@@ -2457,34 +2457,63 @@ button { cursor: pointer; border: none; background: none; }
 /* Mevcut cr-icon font-size kuralları emoji içindi; SVG'de zarar vermez */
 
 /* Tek karta cevap geri bildirimi: pop + soft glow (good) / shake + glow (bad) */
-.card-anim-wrap.fb-good {
-  animation: correctPop .42s cubic-bezier(.34,1.56,.64,1);
-}
-.card-anim-wrap.fb-bad {
-  animation: wrongShake .42s ease-in-out;
-}
+/* Sprint 12: Doğru/yanlış/kararsız geri bildirim — kare çerçeve YOK,
+   yuvarlak köşeli glow (.face üzerinde, mevcut border-radius'u takip
+   eder) + hareket (.flashcard üzerinde). */
+
+/* Hareket: doğru = yukarı zıplama, yanlış = shake, kararsız = pulse */
 .card-anim-wrap.fb-good .flashcard,
 .flip-area.fb-good .flashcard {
-  box-shadow: 0 0 0 3px rgba(63,184,119,.55), 0 14px 40px rgba(63,184,119,.18);
+  animation: cardBounce .52s cubic-bezier(.34, 1.56, .64, 1);
 }
 .card-anim-wrap.fb-bad .flashcard,
 .flip-area.fb-bad .flashcard {
-  box-shadow: 0 0 0 3px rgba(224,122,102,.55), 0 14px 40px rgba(224,122,102,.18);
+  animation: cardShake .48s ease-in-out;
 }
-.flip-area.fb-good { animation: correctPop .42s cubic-bezier(.34,1.56,.64,1); }
-.flip-area.fb-bad  { animation: wrongShake .42s ease-in-out; }
+.card-anim-wrap.fb-maybe .flashcard {
+  animation: cardPulse .52s ease-out;
+}
 
-@keyframes correctPop {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.06); }
-  100% { transform: scale(1); }
+/* Glow: .face'in yuvarlak köşelerini takip eder (.flashcard'ta DEĞİL) */
+.card-anim-wrap.fb-good .face,
+.flip-area.fb-good .face {
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 4px rgba(63, 184, 119, .35),
+    0 16px 50px rgba(63, 184, 119, .35);
 }
-@keyframes wrongShake {
+.card-anim-wrap.fb-bad .face,
+.flip-area.fb-bad .face {
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 4px rgba(224, 122, 102, .35),
+    0 16px 50px rgba(224, 122, 102, .35);
+}
+.card-anim-wrap.fb-maybe .face {
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 4px rgba(217, 154, 58, .32),
+    0 16px 50px rgba(217, 154, 58, .30);
+}
+
+@keyframes cardBounce {
+  0%   { transform: translateY(0) scale(1); }
+  35%  { transform: translateY(-14px) scale(1.04); }
+  60%  { transform: translateY(-4px) scale(1.01); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes cardShake {
   0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-8px); }
-  40% { transform: translateX(8px); }
-  60% { transform: translateX(-5px); }
-  80% { transform: translateX(5px); }
+  15% { transform: translateX(-10px) rotate(-1.2deg); }
+  35% { transform: translateX(10px) rotate(1.2deg); }
+  55% { transform: translateX(-7px) rotate(-.8deg); }
+  75% { transform: translateX(7px) rotate(.8deg); }
+}
+@keyframes cardPulse {
+  0%   { transform: scale(1) rotate(0); }
+  40%  { transform: scale(1.035) rotate(-1.2deg); }
+  70%  { transform: scale(1.01) rotate(.6deg); }
+  100% { transform: scale(1) rotate(0); }
 }
 
 /* Mevcut card-anim-wrap.entering animasyonuna hafif yumuşatma:
@@ -2663,7 +2692,12 @@ h2 {
 .banner-emoji .icon { width: 22px; height: 22px; }
 .chip .icon { vertical-align: -2px; margin-right: 2px; }
 
-/* --- Hareketli arka plan: <body>::before / ::after blob'lar --- */
+/* --- Hareketli arka plan: <body>::before / ::after blob'lar ---
+   Sprint 12: blob'lar daha görünür. body'nin kendi background-image'i
+   gradyan ve grain noktaları içerdiğinden, eski z-index: -1 blob'ları
+   o background'un ALTINA itiyordu. Şimdi pozitif z-index ile gradyanın
+   üstünde, içeriğin altında dururlar (.app position:relative + z-index:1
+   ile içerik öne çekildi). */
 body {
   position: relative;
   overflow-x: hidden;
@@ -2671,34 +2705,40 @@ body {
 body::before, body::after {
   content: '';
   position: fixed;
-  width: 480px; height: 480px;
+  width: 520px; height: 520px;
   border-radius: 50%;
-  filter: blur(100px);
-  opacity: .22;
+  filter: blur(80px);
+  opacity: .45;
   pointer-events: none;
-  z-index: -1;
+  z-index: 0;
   will-change: transform;
 }
 body::before {
-  left: -12%; top: -10%;
+  left: -8%; top: -6%;
   background: var(--accent);
-  animation: blobFloatA 24s ease-in-out infinite;
+  animation: blobFloatA 22s ease-in-out infinite;
 }
 body::after {
-  right: -15%; bottom: -10%;
+  right: -10%; bottom: -8%;
   background: var(--accent-deep);
-  animation: blobFloatB 30s ease-in-out -8s infinite;
+  animation: blobFloatB 28s ease-in-out -8s infinite;
 }
 
-/* Açık temada daha hafif */
-[data-theme="light"] body::before { opacity: .14; }
-[data-theme="light"] body::after  { opacity: .14; }
+/* Içerik blob'ların üzerinde net dursun */
+.app {
+  position: relative;
+  z-index: 1;
+}
 
-/* Study/Challenge ekranlarında daha belirgin */
-body.is-study::before { opacity: .38; filter: blur(110px); }
-body.is-study::after  { opacity: .34; filter: blur(110px); }
-[data-theme="light"] body.is-study::before { opacity: .26; }
-[data-theme="light"] body.is-study::after  { opacity: .24; }
+/* Açık temada blob'lar daha hafif kalır (paper rengi daha az kontrast verir) */
+[data-theme="light"] body::before { opacity: .30; }
+[data-theme="light"] body::after  { opacity: .26; }
+
+/* Study/Challenge ekranlarında daha belirgin (boş alan dolsun) */
+body.is-study::before { opacity: .60; filter: blur(90px); }
+body.is-study::after  { opacity: .55; filter: blur(90px); }
+[data-theme="light"] body.is-study::before { opacity: .42; }
+[data-theme="light"] body.is-study::after  { opacity: .38; }
 
 @keyframes blobFloatA {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -2964,4 +3004,38 @@ body.anim-off .theme-toggle.is-dark .tt-moon { transform: none; }
     rgba(193, 59, 126, .10),
     rgba(230, 167, 0, .06));
   border-color: rgba(193, 59, 126, .25);
+}
+
+/* === Sprint 12: Kart canlılığı (idle float) + reduced-motion === */
+
+/* Hiçbir geçiş ya da geri bildirim sınıfı yokken kart hafifçe süzülür.
+   .card-anim-wrap üzerine uygulanır (içeride .flashcard'ın kendi flip
+   transform'u dokunulmadan kalır). */
+.card-anim-wrap:not(.leaving):not(.entering):not(.fb-good):not(.fb-bad):not(.fb-maybe) {
+  animation: cardIdleFloat 4.5s ease-in-out infinite;
+}
+@keyframes cardIdleFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
+}
+
+/* Animasyon kapalı/azaltılmışsa float dursun ama kartlar fonksiyonel kalsın */
+body.anim-off .card-anim-wrap,
+body.anim-off .card-anim-wrap:not(.leaving):not(.entering):not(.fb-good):not(.fb-bad):not(.fb-maybe) {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-anim-wrap:not(.leaving):not(.entering):not(.fb-good):not(.fb-bad):not(.fb-maybe) {
+    animation: none !important;
+  }
+  /* Reduced motion: geri bildirim hareketleri dursun ama renk/glow kalsın */
+  .card-anim-wrap.fb-good .flashcard,
+  .flip-area.fb-good .flashcard,
+  .card-anim-wrap.fb-bad .flashcard,
+  .flip-area.fb-bad .flashcard,
+  .card-anim-wrap.fb-maybe .flashcard {
+    animation: none !important;
+  }
+  /* Blob hareketi dursun (Sprint 10 zaten yapıyordu — pekiştirme) */
+  body::before, body::after { animation: none !important; }
 }

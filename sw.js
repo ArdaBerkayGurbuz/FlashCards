@@ -3,7 +3,7 @@
    App shell cache-first + çevrimdışı yedek
    ============================================================ */
 
-var CACHE = 'flashcards-v28';
+var CACHE = 'flashcards-v29';
 // Sprint 6: indirilen marketplace görselleri (çevrimdışı çalışsın)
 var MP_IMG = 'flashcards-mp-images-v1';
 

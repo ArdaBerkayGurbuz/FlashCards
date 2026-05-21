@@ -205,6 +205,14 @@ button { cursor: pointer; border: none; background: none; }
   z-index: 50;
 }
 
+/* Sprint 12.x: tabs full-width oldu; içerideki butonları .app
+   genişliğiyle hizala (geniş ekranda kenarlarda gereksiz yayılma yok) */
+.tabs > * { max-width: none; }
+@media (min-width: 680px) {
+  .tabs button { max-width: 130px; }
+  .tabs { justify-content: center; gap: 8px; }
+}
+
 .tabs button {
   flex: 1;
   padding: 11px 8px;
@@ -2867,9 +2875,10 @@ body.anim-off .tap-hint { animation: none; }
    son öğesi nav'ın üstünde tam görünsün diye .content'e padding ekle.
    ~44px nav + 6px margin-top + safe-area = güvenli sürtünmesiz alan. */
 .content {
-  /* Sprint 12: tabs fixed olduğu için içerik onun altına geçmesin diye
-     ~58px nav yüksekliği + 16px boşluk + safe-area */
-  padding-bottom: calc(var(--safe-b) + 92px);
+  /* Sprint 12: tabs fixed + full-width + safe-area padding'li.
+     Nav yüksekliği ~70px (12px üst + 11+18+3+11px buton + safe-bottom).
+     Son öğenin nav altına geçmemesi için yeterli alt padding. */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 100px);
 }
 /* Full-bleed sayfalarda (study/challenge) .app padding'i 0 — orada
    .content'e ihtiyaç yok, içerideki ekran kendi düzenini yönetir. */
@@ -3155,18 +3164,24 @@ body.anim-off .card-anim-wrap:not(.leaving):not(.entering):not(.fb-good):not(.fb
   }
 }
 
-/* Bottom nav: viewport'un en altına çakılı kalsın (iOS dvh ile) */
+/* Bottom nav: ekranın TAM altına yapışık, kenar boşluğu yok.
+   Eski hâl: bottom = safe-area + 8px, left/right = 16px, max-width 648
+   → ekran altında 8px boşluk + yanlardan 16px boşluk var, "havada" gibi.
+   Yeni hâl: tam alta yapışık (bottom 0), yanlardan sıfır, safe-area
+   inset için padding (notch'lu cihazlarda home bar ile çakışmasın).
+   Üst köşeler yuvarlak, alt köşeler düz (ekran kenarına oturur). */
 .tabs {
-  /* Sprint 11 = sticky / Sprint 12 = fixed; burada pekiştirme:
-     bottom için safe-area + 8px, sol/sağ 16px, max-width 648 ortali.
-     dvh kullanmaya gerek yok (position: fixed zaten viewport'a yapışır). */
   position: fixed !important;
-  left: 16px !important;
-  right: 16px !important;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
   top: auto !important;
-  max-width: 648px;
-  margin: 0 auto !important;
+  width: 100%;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 6px 12px calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, .25);
   z-index: 50;
 }
 

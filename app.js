@@ -2063,7 +2063,11 @@
       }
     });
     var ctxActivity = (cx.contexts || []).map(function (c) {
-      return { id: c.id, name: c.name, emoji: c.emoji, count: trigByCtx[c.id] || 0 };
+      return {
+        id: c.id, name: c.name,
+        emoji: c.emoji, icon: contextIconName(c),
+        count: trigByCtx[c.id] || 0
+      };
     });
     var maxAct = ctxActivity.reduce(function (m, a) {
       return a.count > m ? a.count : m;
@@ -2216,7 +2220,9 @@
               var w = maxAct > 0 ? Math.round((a.count / maxAct) * 100) : 0;
               return h('div', { className: 'actrow', key: a.id },
                 h('div', { className: 'actrow-top' },
-                  h('span', { className: 'actrow-name' }, a.emoji + ' ' + a.name),
+                  h('span', { className: 'actrow-name' },
+                    IconEl(a.icon, 14),
+                    h('span', null, ' ' + a.name)),
                   h('span', { className: 'actrow-n mono' }, a.count + ' seans')
                 ),
                 h('div', { className: 'actbar' },
@@ -2781,7 +2787,7 @@
           className: 'ctx-row', key: c.id,
           onClick: function () { props.onOpen(c.id); }
         },
-          h('div', { className: 'ctx-emoji' }, c.emoji),
+          h('div', { className: 'ctx-emoji' }, renderContextIcon(c, 24)),
           h('div', { className: 'ctx-body' },
             h('div', { className: 'ctx-name' }, c.name),
             h('div', { className: 'ctx-summary' + (isNone ? ' none' : '') },

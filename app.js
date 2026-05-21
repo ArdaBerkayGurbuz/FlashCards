@@ -1449,8 +1449,10 @@
     var anim = aSt[0], setAnim = aSt[1];
     var animTimer = useRef(null);
     // CSS .leaving=.48s / .entering=.62s. SWAP_MS: çıkış bitmeden
-    // advance+entering tetikle → eski/yeni bindirme (crossfade, boş an yok)
-    var LEAVE_MS = 480, ENTER_MS = 620, SWAP_MS = 300;
+    // advance+entering tetikle → eski/yeni bindirme (crossfade, boş an yok).
+    // Sprint 12: kart çok hızlı geçiyordu → SWAP'i geç tetikle ki kullanıcı
+    // bounce/shake/pulse geri bildirimini görsün (430-520ms keyframe'ler).
+    var LEAVE_MS = 480, ENTER_MS = 620, SWAP_MS = 560;
 
     // Sprint 9 + Sprint 12: cevap geri bildirimi (ses+haptik+flash sınıfı)
     // Sprint 12: 'maybe' artık nötr geri bildirim alır
@@ -1511,7 +1513,9 @@
         if (animationsAllowed()) setFeedback('maybe');
       }
       if (fbTimer.current) clearTimeout(fbTimer.current);
-      fbTimer.current = setTimeout(function () { setFeedback(null); }, 480);
+      // Sprint 12: feedback class'i bounce/shake/pulse animasyonu tamamen
+      // bittikten sonra temizlensin (520ms keyframe + buffer).
+      fbTimer.current = setTimeout(function () { setFeedback(null); }, 600);
 
       setAnim('leaving');
       // SWAP_MS'te (çıkış bitmeden) advance + entering → eski/yeni
@@ -1750,7 +1754,9 @@
     }, []);
 
     function answer(isCorrect) {
-      // Sprint 9: ses + haptik + flash sınıfı
+      // Sprint 12: cevap kilidi — animasyon ortasında çift tık engelle
+      if (fbTimer.current) return;
+
       if (isCorrect) {
         playSound('correct'); haptic(15);
         if (animationsAllowed()) setFeedback('good');
@@ -1758,22 +1764,27 @@
         playSound('wrong'); haptic([10, 50, 10]);
         if (animationsAllowed()) setFeedback('bad');
       }
-      if (fbTimer.current) clearTimeout(fbTimer.current);
-      fbTimer.current = setTimeout(function () { setFeedback(null); }, 420);
 
-      setS(function (p) {
-        var nextIdx = p.idx + 1;
-        var nextCorrect = p.correct + (isCorrect ? 1 : 0);
-        if (nextIdx >= cards.length) {
-          var total = cards.length;
-          var time = Math.floor((Date.now() - startedAtRef.current) / 1000);
-          setTimeout(function () {
-            props.onFinish({ score: nextCorrect, total: total, time: time });
-          }, 0);
-          return { idx: nextIdx, flipped: false, correct: nextCorrect, done: true };
-        }
-        return { idx: nextIdx, flipped: false, correct: nextCorrect, done: false };
-      });
+      // Sprint 12: geri bildirim animasyonunu (bounce/shake ~520ms) gör →
+      // sonra kartı ilerlet. Hızlı geçiş hissi gitti.
+      var ADVANCE_DELAY = 560;
+      fbTimer.current = setTimeout(function () {
+        setFeedback(null);
+        fbTimer.current = null;
+        setS(function (p) {
+          var nextIdx = p.idx + 1;
+          var nextCorrect = p.correct + (isCorrect ? 1 : 0);
+          if (nextIdx >= cards.length) {
+            var total = cards.length;
+            var time = Math.floor((Date.now() - startedAtRef.current) / 1000);
+            setTimeout(function () {
+              props.onFinish({ score: nextCorrect, total: total, time: time });
+            }, 0);
+            return { idx: nextIdx, flipped: false, correct: nextCorrect, done: true };
+          }
+          return { idx: nextIdx, flipped: false, correct: nextCorrect, done: false };
+        });
+      }, ADVANCE_DELAY);
     }
     function flip() {
       setS(function (p) { return Object.assign({}, p, { flipped: !p.flipped }); });

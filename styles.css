@@ -8,9 +8,11 @@
   --r-md: 14px;
   --r-lg: 22px;
 
-  --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
-  --font-body:  'Inter Tight', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono:  'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  /* Sprint 10: tek aile (Plus Jakarta Sans) — değişken adları geriye uyumluluk
+     için korunur; tüm `var(--font-*)` kullanımları artık aynı sans'a düşer. */
+  --font-serif: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-body:  'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono:  'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -2537,4 +2539,223 @@ button { cursor: pointer; border: none; background: none; }
     transform: none !important;
     transition: none !important;
   }
+}
+
+/* === Sprint 10: Görsel kimlik (tipografi + ikon + arka plan + kart) === */
+
+/* --- Tipografi hiyerarşisi (tek aile, ağırlık ile ayır) --- */
+html, body { font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+h1, .topbar h1 {
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: -0.012em;
+}
+h2 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: -0.006em;
+}
+.deck h2, .deck-row h2 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: -0.004em;
+}
+.topbar .sub, .deck .meta, .meta, .mono {
+  font-family: var(--font-body);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.boot {
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+.btn, .iconbtn, .linkbtn, .rate, .goal-chip, .tabs button {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* --- Açık tema ince ayar (daha az "baby pink", biraz daha sofistike) --- */
+[data-theme="light"] {
+  --accent-soft: #E8C3D8;
+  --paper:       #F4EEF9;
+}
+
+/* --- Aksiyon butonu satır içi (ikon + label) hizalama --- */
+.btn-icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+.btn-icon-label .icon { flex: 0 0 auto; }
+.linkbtn.btn-icon-label { display: inline-flex; align-items: center; gap: 4px; }
+
+/* --- Bağlam ikon grid (eski emoji-grid yerine) --- */
+.ctx-icon-lg {
+  display: flex; align-items: center; justify-content: center;
+  width: 64px; height: 64px;
+  margin: 0 auto 12px;
+  border-radius: 18px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.ctx-icon-lg .icon { width: 40px; height: 40px; }
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.icon-cell {
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 1 / 1;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s, transform .12s;
+}
+.icon-cell:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.icon-cell.sel {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-deep);
+  box-shadow: 0 4px 12px rgba(213, 75, 144, .35);
+}
+.icon-cell .icon { width: 24px; height: 24px; }
+.icon-cell:active { transform: scale(0.94); }
+
+@media (max-width: 420px) {
+  .icon-grid { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* --- Banner / chip içinde context ikon --- */
+.banner-emoji {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  color: var(--accent);
+}
+.banner-emoji .icon { width: 22px; height: 22px; }
+.chip .icon { vertical-align: -2px; margin-right: 2px; }
+
+/* --- Hareketli arka plan: <body>::before / ::after blob'lar --- */
+body {
+  position: relative;
+  overflow-x: hidden;
+}
+body::before, body::after {
+  content: '';
+  position: fixed;
+  width: 480px; height: 480px;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: .22;
+  pointer-events: none;
+  z-index: -1;
+  will-change: transform;
+}
+body::before {
+  left: -12%; top: -10%;
+  background: var(--accent);
+  animation: blobFloatA 24s ease-in-out infinite;
+}
+body::after {
+  right: -15%; bottom: -10%;
+  background: var(--accent-deep);
+  animation: blobFloatB 30s ease-in-out -8s infinite;
+}
+
+/* Açık temada daha hafif */
+[data-theme="light"] body::before { opacity: .14; }
+[data-theme="light"] body::after  { opacity: .14; }
+
+/* Study/Challenge ekranlarında daha belirgin */
+body.is-study::before { opacity: .38; filter: blur(110px); }
+body.is-study::after  { opacity: .34; filter: blur(110px); }
+[data-theme="light"] body.is-study::before { opacity: .26; }
+[data-theme="light"] body.is-study::after  { opacity: .24; }
+
+@keyframes blobFloatA {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(40px, -30px) scale(1.06); }
+  66%      { transform: translate(-20px, 40px) scale(0.96); }
+}
+@keyframes blobFloatB {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(-40px, 30px) scale(1.06); }
+  66%      { transform: translate(30px, -25px) scale(0.96); }
+}
+
+/* Animasyon kapalıyken blob'ları dondur (statik gradient hissi kalır) */
+body.anim-off::before,
+body.anim-off::after {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  body::before, body::after { animation: none !important; }
+}
+
+/* --- Çalışma kartı: dekoratif başlık çipi (görselsiz kartlarda) --- */
+.face-header-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  margin: 24px auto 16px;
+  box-shadow: 0 2px 8px rgba(213, 75, 144, .12);
+}
+.face-header-chip .icon { width: 14px; height: 14px; }
+
+/* Mevcut .tag (SORU / CEVAP) absolute olabilir; çipi gizlemesin diye yer aç */
+.face:not(:has(.face-img)) .text {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 0 8px;
+}
+.face .hint {
+  font-weight: 500;
+  opacity: .55;
+}
+
+/* Hafif "tap" hint pulse — flip etmeden önce gözü çeksin */
+.face .hint, .tap-hint {
+  animation: hintPulse 2.6s ease-in-out infinite;
+}
+@keyframes hintPulse {
+  0%, 100% { opacity: .45; }
+  50%      { opacity: .85; }
+}
+body.anim-off .face .hint,
+body.anim-off .tap-hint { animation: none; }
+
+/* Kart derinliği: koyu temada hafif accent halo */
+[data-theme="dark"] .flashcard {
+  box-shadow:
+    0 0 0 1px rgba(213, 75, 144, .18),
+    0 20px 60px rgba(0, 0, 0, .55),
+    0 0 80px rgba(213, 75, 144, .10);
+}
+[data-theme="light"] .flashcard {
+  box-shadow:
+    0 0 0 1px rgba(193, 59, 126, .10),
+    0 14px 40px rgba(70, 40, 90, .12);
+}
+
+/* Reduced-motion: chip ve hint statik kalsın */
+@media (prefers-reduced-motion: reduce) {
+  .face .hint, .tap-hint { animation: none !important; }
 }

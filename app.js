@@ -340,10 +340,16 @@
               : []
           };
         }
+        // Sprint 10: eski emoji'yi koru (geri yükleme için), yeni 'icon' alanını
+        // doldur. Daha önce kaydedilmiş ikon varsa onu tut; yoksa emoji'yi
+        // eşle. Sonuç: her bağlamda geçerli bir ikon ID'si garanti.
+        var existingIcon = (typeof c.icon === 'string' && c.icon) ? c.icon : null;
+        var emojiKey = typeof c.emoji === 'string' && c.emoji ? c.emoji : '📍';
         return {
           id: typeof c.id === 'string' ? c.id : ('ctx_' + uid()),
           name: typeof c.name === 'string' && c.name.trim() ? c.name : 'İsimsiz bağlam',
-          emoji: typeof c.emoji === 'string' && c.emoji ? c.emoji : '📍',
+          emoji: emojiKey,
+          icon: existingIcon || migrateContextIcon(emojiKey),
           location: loc,
           time: tm,
           notificationEnabled: c.notificationEnabled !== false,
@@ -1010,7 +1016,55 @@
     tilde:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/></svg>',
     trophy:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v6a5 5 0 0 1-10 0V4z"/><path d="M17 4h3v3a3 3 0 0 1-3 3"/><path d="M7 4H4v3a3 3 0 0 0 3 3"/></svg>',
     flex:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13c2 0 3-1 3-3V5a2 2 0 0 1 4 0c0 4 1 6 5 6s4 4 0 5c-3 1-6 2-9 2s-6-1-7-3 1-2 4-2z"/></svg>',
-    handshake: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l2 2a2 2 0 0 0 3 0l4-4a2 2 0 0 0 0-3l-3-3"/><path d="M13 7l-2-2a2 2 0 0 0-3 0L4 9a2 2 0 0 0 0 3l3 3"/><path d="M9 13l3-3 3 3 3-3"/></svg>'
+    handshake: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l2 2a2 2 0 0 0 3 0l4-4a2 2 0 0 0 0-3l-3-3"/><path d="M13 7l-2-2a2 2 0 0 0-3 0L4 9a2 2 0 0 0 0 3l3 3"/><path d="M9 13l3-3 3 3 3-3"/></svg>',
+
+    /* === Sprint 10: aksiyon ikonları === */
+    play:        '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>',
+    trash:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>',
+    edit:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    refresh:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+    swords:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" y1="14" x2="9" y2="18"/><line x1="7" y1="17" x2="4" y2="20"/><line x1="3" y1="19" x2="5" y2="21"/></svg>',
+    share:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
+    link:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    whatsapp:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
+    star:        '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    clock:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>',
+    sparkles:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4L12 3z"/><path d="M5 18l.6 1.4L7 20l-1.4.6L5 22l-.6-1.4L3 20l1.4-.6L5 18z"/><path d="M19 14l.5 1.2L21 16l-1.5.8L19 18l-.5-1.2L17 16l1.5-.8L19 14z"/></svg>',
+    fire:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 4 4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 2-4-1 4 2 4 2 0 0-1 0-3 0-4z"/><path d="M8 14a4 4 0 0 0 8 0c0-1-.5-2-1-3"/></svg>',
+    target:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>',
+    note:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>',
+
+    /* === Sprint 10: bağlam kategori ikonları === */
+    coffee:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a3 3 0 0 1 0 6h-1"/><path d="M3 8h15v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><line x1="6" y1="2" x2="6" y2="5"/><line x1="10" y1="2" x2="10" y2="5"/><line x1="14" y1="2" x2="14" y2="5"/></svg>',
+    home:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5l9-7 9 7V21a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z"/></svg>',
+    building:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="22" x2="9" y2="18"/><line x1="15" y1="22" x2="15" y2="18"/><line x1="8" y1="6" x2="10" y2="6"/><line x1="14" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/></svg>',
+    car:         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h2v-3.5L19.4 9a2 2 0 0 0-1.85-1.25h-11.1A2 2 0 0 0 4.6 9L3 12.5V16h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>',
+    run:         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="M4 22l3-8 4 1 1 6"/><path d="M7 14l-3-4 5-4 4 4 3-1"/></svg>',
+    book:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+    utensils:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V2"/><line x1="5" y1="11" x2="5" y2="22"/><path d="M17 2v20"/><path d="M17 13c-2.5 0-4-1.5-4-4 0-4 4-7 4-7"/></svg>',
+    bed:         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18V8h8a4 4 0 0 1 4 4v2h6v4"/><line x1="3" y1="18" x2="3" y2="21"/><line x1="21" y1="18" x2="21" y2="21"/><circle cx="7" cy="12" r="1.5"/></svg>',
+    dumbbell:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6.5" y1="6.5" x2="17.5" y2="17.5"/><path d="M3 7l4-4 4 4-4 4z"/><path d="M21 17l-4 4-4-4 4-4z"/><path d="M2 12l3 3"/><path d="M19 9l3 3"/></svg>',
+    headphones:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3v4z"/><path d="M3 19a2 2 0 0 0 2 2h1v-6H3v4z"/></svg>',
+    tree:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-3 3-5 5-5 8a5 5 0 0 0 4 5v3"/><path d="M12 2c3 3 5 5 5 8a5 5 0 0 1-4 5v3"/><line x1="9" y1="22" x2="15" y2="22"/></svg>',
+    train:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="3"/><line x1="4" y1="11" x2="20" y2="11"/><circle cx="8.5" cy="15.5" r="1"/><circle cx="15.5" cy="15.5" r="1"/><line x1="7" y1="22" x2="5" y2="20"/><line x1="17" y1="22" x2="19" y2="20"/></svg>',
+    clockAlarm:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 14.5"/><path d="M5 3L2 6"/><path d="M19 3l3 3"/></svg>',
+    plane:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>',
+    cap:         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/></svg>',
+    briefcase:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
+    cart:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>',
+    hospital:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="16" rx="2"/><path d="M9 6V2h6v4"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>',
+    beach:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-3 3-5-2-5 2-3-3 8-4z"/><line x1="12" y1="8" x2="12" y2="20"/><path d="M3 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>',
+    film:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>',
+    gamepad:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="2"/></svg>',
+    palette:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="0.5"/><circle cx="17.5" cy="10.5" r="0.5"/><circle cx="8.5" cy="7.5" r="0.5"/><circle cx="6.5" cy="12.5" r="0.5"/><path d="M12 2a10 10 0 1 0 10 10c0-2-2-2-4-2h-1a2 2 0 0 1 0-4c2 0 2-2 2-2A10 10 0 0 0 12 2z"/></svg>',
+    umbrella:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12a10 10 0 0 0-20 0z"/><path d="M12 12v8a2 2 0 0 0 4 0"/></svg>',
+    snowflake:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M5 5l14 14"/><path d="M19 5L5 19"/><path d="M12 5l-2 2"/><path d="M12 5l2 2"/><path d="M12 19l-2-2"/><path d="M12 19l2-2"/></svg>',
+    lightbulb:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 4 12c-1 1-1.5 2-1.5 3h-5c0-1-.5-2-1.5-3a7 7 0 0 1 4-12z"/></svg>',
+    brain:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3 3 3 0 0 0-3 3 3 3 0 0 0 .5 5 3 3 0 0 0 .5 5 3 3 0 0 0 3 3 3 3 0 0 0 2-1 3 3 0 0 0 2 1 3 3 0 0 0 3-3 3 3 0 0 0 .5-5 3 3 0 0 0 .5-5 3 3 0 0 0-3-3 3 3 0 0 0-3-3z"/></svg>',
+    tea:         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11h12v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"/><path d="M17 12h1a3 3 0 0 1 0 6h-1"/><path d="M8 5c1-1 2-1 3 0s2 1 3 0"/></svg>',
+    sunrise:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="8 6 12 2 16 6"/></svg>',
+    nightCity:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/><line x1="3" y1="22" x2="21" y2="22"/></svg>',
+    pin:         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>'
   };
 
   function IconEl(name, size) {
@@ -1022,6 +1076,76 @@
       'aria-hidden': 'true',
       dangerouslySetInnerHTML: { __html: svg }
     });
+  }
+
+  /* ===== Sprint 10: Bağlam ikon kataloğu (eski emoji grid yerine) ===== */
+
+  var CONTEXT_ICONS = [
+    { id: 'coffee', label: 'Kafe' },
+    { id: 'home', label: 'Ev' },
+    { id: 'building', label: 'Ofis' },
+    { id: 'car', label: 'Araba' },
+    { id: 'run', label: 'Koşu' },
+    { id: 'book', label: 'Kitap' },
+    { id: 'utensils', label: 'Yemek' },
+    { id: 'bed', label: 'Uyku' },
+    { id: 'dumbbell', label: 'Spor' },
+    { id: 'headphones', label: 'Müzik' },
+    { id: 'tree', label: 'Doğa' },
+    { id: 'train', label: 'Toplu taşıma' },
+    { id: 'sun', label: 'Gün' },
+    { id: 'moon', label: 'Gece' },
+    { id: 'clockAlarm', label: 'Alarm' },
+    { id: 'pin', label: 'Konum' },
+    { id: 'plane', label: 'Seyahat' },
+    { id: 'cap', label: 'Okul' },
+    { id: 'briefcase', label: 'İş' },
+    { id: 'cart', label: 'Alışveriş' },
+    { id: 'hospital', label: 'Sağlık' },
+    { id: 'beach', label: 'Tatil' },
+    { id: 'film', label: 'Sinema' },
+    { id: 'gamepad', label: 'Oyun' },
+    { id: 'palette', label: 'Sanat' },
+    { id: 'umbrella', label: 'Yağmur' },
+    { id: 'snowflake', label: 'Kış' },
+    { id: 'fire', label: 'Seri' },
+    { id: 'star', label: 'Yıldız' },
+    { id: 'lightbulb', label: 'Fikir' },
+    { id: 'note', label: 'Not' },
+    { id: 'brain', label: 'Düşünce' },
+    { id: 'tea', label: 'Çay' },
+    { id: 'sunrise', label: 'Sabah' },
+    { id: 'nightCity', label: 'Şehir gecesi' },
+    { id: 'target', label: 'Hedef' }
+  ];
+
+  // Sprint <=9'da kaydedilmiş emoji → Sprint 10 ikon ID eşlemesi
+  var EMOJI_TO_ICON = {
+    '☕': 'coffee', '🏠': 'home', '🏢': 'building', '🚗': 'car',
+    '🏃': 'run', '📚': 'book', '🍽️': 'utensils', '🍽': 'utensils',
+    '🛏️': 'bed', '🛏': 'bed', '🏋️': 'dumbbell', '🏋': 'dumbbell',
+    '🎧': 'headphones', '🌳': 'tree', '🚇': 'train',
+    '☀️': 'sun', '☀': 'sun', '🌙': 'moon', '⏰': 'clockAlarm',
+    '📍': 'pin', '✈️': 'plane', '✈': 'plane', '🎓': 'cap',
+    '💼': 'briefcase', '🛒': 'cart', '🏥': 'hospital',
+    '🏖️': 'beach', '🏖': 'beach', '🎬': 'film', '🎮': 'gamepad',
+    '🎨': 'palette', '☔': 'umbrella', '❄️': 'snowflake', '❄': 'snowflake',
+    '🔥': 'fire', '⭐': 'star', '💡': 'lightbulb',
+    '📝': 'note', '🧠': 'brain', '🍵': 'tea', '🌅': 'sunrise',
+    '🌃': 'nightCity', '🎯': 'target'
+  };
+  function migrateContextIcon(emoji) {
+    var key = String(emoji || '').trim();
+    return EMOJI_TO_ICON[key] || 'pin';
+  }
+  // Bağlam görselini güvenli şekilde döndür: yeni icon → varsa onu, yoksa
+  // eski emoji'yi map'ten dön. Sonuç her zaman geçerli bir ICONS anahtarıdır.
+  function contextIconName(ctx) {
+    if (ctx && typeof ctx.icon === 'string' && ICONS[ctx.icon]) return ctx.icon;
+    return migrateContextIcon(ctx && ctx.emoji);
+  }
+  function renderContextIcon(ctx, size) {
+    return IconEl(contextIconName(ctx), size || 18);
   }
 
   /* ===== Sprint 9: Konfeti (kutlama overlay) ===== */
@@ -1188,13 +1312,13 @@
             ),
             h('div', { className: 'deck-actions' },
               h('button', {
-                className: 'btn primary',
+                className: 'btn primary btn-icon-label',
                 disabled: d.cards.length === 0,
                 onClick: function () { props.onStudy(d.id); }
-              }, '▶  Çalış'),
+              }, IconEl('play', 14), h('span', null, 'Çalış')),
               h('button', { className: 'btn ghost', onClick: function () { props.onOpen(d.id); } }, 'Kartlar'),
               h('button', { className: 'linkbtn', onClick: function () { props.onRename(d); } }, 'Ad'),
-              h('button', { className: 'linkbtn danger', onClick: function () { props.onDelete(d); } }, 'Sil')
+              h('button', { className: 'linkbtn danger btn-icon-label', onClick: function () { props.onDelete(d); } }, IconEl('trash', 14), h('span', null, 'Sil'))
             )
           );
         })
@@ -1228,25 +1352,25 @@
                 h('div', { className: 'q' }, c.q || '(boş soru)'),
                 h('div', { className: 'a' }, c.a || '(boş cevap)'),
                 h('div', { className: 'row-actions' },
-                  h('button', { className: 'linkbtn', onClick: function () { props.onEditCard(c); } }, '✎ Düzenle'),
-                  h('button', { className: 'linkbtn danger', onClick: function () { props.onDeleteCard(c); } }, '🗑 Sil')
+                  h('button', { className: 'linkbtn btn-icon-label', onClick: function () { props.onEditCard(c); } }, IconEl('edit', 14), h('span', null, 'Düzenle')),
+                  h('button', { className: 'linkbtn danger btn-icon-label', onClick: function () { props.onDeleteCard(c); } }, IconEl('trash', 14), h('span', null, 'Sil'))
                 )
               );
             }),
             h('div', { className: 'spacer-sm' }),
             h('button', {
-              className: 'btn primary full lg',
+              className: 'btn primary full lg btn-icon-label',
               disabled: deck.cards.length === 0,
               onClick: function () { props.onStudy(deck.id); }
-            }, '▶  Bu desteyi çalış'),
+            }, IconEl('play', 18), h('span', null, 'Bu desteyi çalış')),
             // Sprint 8: Meydan Oku
             h('div', { className: 'spacer-sm' }),
             h('button', {
-              className: 'btn duel full lg',
+              className: 'btn duel full lg btn-icon-label',
               disabled: deck.cards.length < 2,
               title: deck.cards.length < 2 ? 'En az 2 kart gerekli' : '',
               onClick: function () { props.onChallenge && props.onChallenge(deck.id); }
-            }, '⚔️  Meydan Oku')
+            }, IconEl('swords', 18), h('span', null, 'Meydan Oku'))
           )
     );
   }
@@ -1395,7 +1519,7 @@
     if (s.done) {
       return h('div', { className: 'study' },
         h('div', { className: 'summary' },
-          h('div', { className: 'seal' }, '🎉'),
+          h('div', { className: 'seal' }, IconEl('sparkles', 56)),
           h('h2', null, 'İyi iş!'),
           h('div', { className: 'lead' }, headerTitle + ' · seans tamamlandı'),
           h('div', { className: 'summary-stats' },
@@ -1411,7 +1535,7 @@
           ),
           h('button', { className: 'btn primary full lg', onClick: props.onExit }, 'Bitir'),
           h('div', { className: 'spacer-sm' }),
-          h('button', { className: 'btn ghost full', onClick: props.onRestart }, '↻  Tekrar çalış')
+          h('button', { className: 'btn ghost full btn-icon-label', onClick: props.onRestart }, IconEl('refresh', 16), h('span', null, 'Tekrar çalış'))
         )
       );
     }
@@ -1455,7 +1579,8 @@
                   loading: 'lazy',
                   onError: function (e) { e.target.style.display = 'none'; }
                 })
-              : null,
+              : h('div', { className: 'face-header-chip', 'aria-hidden': 'true' },
+                  IconEl('note', 14), h('span', null, 'Soru')),
             h('div', { className: 'text' }, card ? card.q : ''),
             (card && card.pronunciation)
               ? h('div', { className: 'face-pron' }, card.pronunciation)
@@ -1635,7 +1760,8 @@
           className: 'iconbtn',
           onClick: props.onExit, 'aria-label': 'Düellodan çık'
         }, '✕'),
-        h('div', { className: 'challenge-timer' }, '⏱ ' + mmss(elapsed)),
+        h('div', { className: 'challenge-timer' },
+          IconEl('clock', 14), h('span', null, ' ' + mmss(elapsed))),
         h('div', { className: 'progress-count' }, (s.idx + 1) + ' / ' + cards.length)
       ),
       h('div', { className: 'challenge-banner-mini' }, '⚔️ Düello modu'),
@@ -1647,6 +1773,8 @@
         h('div', { className: 'flashcard' + (s.flipped ? ' flipped' : ''), role: 'button' },
           h('div', { className: 'face front' },
             h('div', { className: 'tag' }, 'SORU'),
+            h('div', { className: 'face-header-chip', 'aria-hidden': 'true' },
+              IconEl('swords', 14), h('span', null, 'Düello')),
             h('div', { className: 'text' }, card ? card.q : ''),
             h('div', { className: 'hint' }, 'Cevabı görmek için dokun')
           ),
@@ -1735,16 +1863,16 @@
         h('strong', null, props.score + '/' + props.total),
         ' yaptın. Arkadaşların geçebilir mi?'),
       h('div', { className: 'share-actions' },
-        h('button', { className: 'btn duel full', onClick: shareWhatsApp },
-          '📱  WhatsApp\'ta Paylaş'),
+        h('button', { className: 'btn duel full btn-icon-label', onClick: shareWhatsApp },
+          IconEl('whatsapp', 18), h('span', null, 'WhatsApp\'ta Paylaş')),
         h('div', { className: 'spacer-sm' }),
-        h('button', { className: 'btn primary full', onClick: copy },
-          '🔗  Linki Kopyala'),
+        h('button', { className: 'btn primary full btn-icon-label', onClick: copy },
+          IconEl('link', 18), h('span', null, 'Linki Kopyala')),
         navigator.share
           ? h('div', null,
               h('div', { className: 'spacer-sm' }),
-              h('button', { className: 'btn ghost full', onClick: nativeShare },
-                '📤  Paylaş (sistem)'))
+              h('button', { className: 'btn ghost full btn-icon-label', onClick: nativeShare },
+                IconEl('share', 18), h('span', null, 'Paylaş (sistem)')))
           : null
       ),
       h('div', { className: 'spacer-sm' }),
@@ -1786,10 +1914,11 @@
 
     if (mode === 'challenger') {
       return h('div', { className: 'challenge-result' },
-        h('div', { className: 'cr-icon' }, '⭐'),
+        h('div', { className: 'cr-icon' }, IconEl('star', 56)),
         h('h2', { className: 'cr-title' }, 'Skorun hazır'),
         h('div', { className: 'cr-score' }, mine.score + ' / ' + mine.total),
-        h('div', { className: 'cr-sub' }, '⏱ ' + mmss(mine.time)),
+        h('div', { className: 'cr-sub' },
+          IconEl('clock', 14), h('span', null, ' ' + mmss(mine.time))),
         h('div', { className: 'spacer-sm' }),
         h('button', {
           className: 'btn duel full lg',
@@ -1831,12 +1960,14 @@
         h('div', { className: 'cr-vs-row mine' },
           h('span', { className: 'cr-vs-name' }, 'Sen'),
           h('span', { className: 'cr-vs-score' }, mine.score + ' / ' + mine.total),
-          h('span', { className: 'cr-vs-time' }, '⏱ ' + mmss(mine.time))
+          h('span', { className: 'cr-vs-time' },
+            IconEl('clock', 12), h('span', null, ' ' + mmss(mine.time)))
         ),
         h('div', { className: 'cr-vs-row theirs' },
           h('span', { className: 'cr-vs-name' }, theirs.name || 'Rakip'),
           h('span', { className: 'cr-vs-score' }, theirs.score + ' / ' + theirs.total),
-          h('span', { className: 'cr-vs-time' }, '⏱ ' + mmss(theirs.time))
+          h('span', { className: 'cr-vs-time' },
+            IconEl('clock', 12), h('span', null, ' ' + mmss(theirs.time)))
         )
       ),
       h('div', { className: 'spacer-sm' }),
@@ -2334,8 +2465,10 @@
     var ctx = item.context;
     return h('div', { className: 'catchup', role: 'status' },
       h('div', { className: 'catchup-text' },
-        ctx.emoji + ' “' + ctx.name + '” zamanını kaçırdın — ' +
-        item.dueCardCount + ' kart hâlâ bekliyor'
+        renderContextIcon(ctx, 14),
+        h('span', null,
+          ' “' + ctx.name + '” zamanını kaçırdın — ' +
+          item.dueCardCount + ' kart hâlâ bekliyor')
       ),
       h('div', { className: 'catchup-actions' },
         h('button', { className: 'btn primary', onClick: function () { props.onStudy(ctx); } }, 'Çalış'),
@@ -2395,7 +2528,7 @@
         onClick: function () { props.onDismiss(ctx.id); }
       }, '×'),
       h('div', { className: 'banner-head' },
-        h('span', { className: 'banner-emoji' }, ctx.emoji),
+        h('span', { className: 'banner-emoji' }, renderContextIcon(ctx, 22)),
         h('span', { className: 'banner-name' }, ctx.name)
       ),
       h('div', { className: 'banner-count' }, top.dueCardCount + ' kart seni bekliyor'),
@@ -2631,7 +2764,7 @@
         ? h('button', {
             className: 'btn primary full', style: { marginTop: '12px' },
             onClick: props.onStudyContext
-          }, '▶  Bu bağlamla çalış')
+          }, IconEl('play', 18), h('span', null, ' Bu bağlamla çalış'))
         : null,
       cards.length === 0
         ? h('div', { className: 'linked-empty' },
@@ -2672,9 +2805,13 @@
     var existing = props.context; // null = yeni
     var s = useState(function () {
       var c = existing || {};
+      var initialIcon = (c && typeof c.icon === 'string' && ICONS[c.icon])
+        ? c.icon
+        : migrateContextIcon(c.emoji || '📍');
       return {
         name: c.name || '',
         emoji: c.emoji || '📍',
+        icon: initialIcon,
         locOn: !!c.location,
         lat: c.location ? c.location.lat : null,
         lng: c.location ? c.location.lng : null,
@@ -2742,6 +2879,7 @@
       var payload = {
         name: f.name.trim(),
         emoji: f.emoji,
+        icon: f.icon,
         location: f.locOn ? {
           lat: f.lat, lng: f.lng,
           radiusMeters: f.radius,
@@ -2775,17 +2913,18 @@
           onChange: function (e) { set({ name: e.target.value }); }
         })
       ),
-      // Emoji
+      // Sprint 10: İkon (eski emoji grid yerine SVG katalog)
       h('div', { className: 'field' },
-        h('label', null, 'Emoji'),
-        h('div', { className: 'ctx-emoji-lg' }, f.emoji),
-        h('div', { className: 'emoji-grid' },
-          EMOJI_CHOICES.map(function (em) {
+        h('label', null, 'İkon'),
+        h('div', { className: 'ctx-icon-lg' }, IconEl(f.icon, 40)),
+        h('div', { className: 'icon-grid' },
+          CONTEXT_ICONS.map(function (ic) {
             return h('button', {
-              key: em, type: 'button',
-              className: 'emoji-cell' + (f.emoji === em ? ' sel' : ''),
-              onClick: function () { set({ emoji: em }); }
-            }, em);
+              key: ic.id, type: 'button',
+              className: 'icon-cell' + (f.icon === ic.id ? ' sel' : ''),
+              title: ic.label, 'aria-label': ic.label,
+              onClick: function () { set({ icon: ic.id }); }
+            }, IconEl(ic.id, 24));
           })
         )
       ),
@@ -3156,6 +3295,24 @@
     useEffect(function () { persistDuels(duels); }, [duels]);
     // Sprint 9: AudioContext'i ilk kullanıcı dokunuşuna kadar kilitle (autoplay)
     useEffect(function () { unlockAudioOnFirstGesture(); }, []);
+
+    // Sprint 10: route'a göre <body> sınıfı (CSS blob arka planı için ipucu)
+    useEffect(function () {
+      var b = document.body;
+      if (!b) return;
+      var isStudyish = (route.name === 'study' ||
+                       route.name === 'challengePlay' ||
+                       route.name === 'challengeIntro' ||
+                       route.name === 'challengeResult');
+      b.classList.toggle('is-study', isStudyish);
+    }, [route.name]);
+
+    // Sprint 10: Animasyon tercihi değişince <body class="anim-off"> bayrağı
+    useEffect(function () {
+      var b = document.body;
+      if (!b) return;
+      b.classList.toggle('anim-off', !animationsAllowed());
+    }, [animOn]);
 
     // Boot'ta bir kere: kırık (orphan) kart-bağlam linklerini sessizce temizle
     useEffect(function () { cleanupOrphanLinks(); }, []);
@@ -3921,7 +4078,7 @@
       setRoute({
         name: 'study',
         sessionKey: uid(),
-        ctxStudy: { ctxId: ctx.id, name: ctx.name, emoji: ctx.emoji, cards: cards }
+        ctxStudy: { ctxId: ctx.id, name: ctx.name, emoji: ctx.emoji, icon: contextIconName(ctx), cards: cards }
       });
     }
 
@@ -4957,7 +5114,7 @@
                   key: c.id, type: 'button',
                   className: 'chip' + (on ? ' sel' : ''),
                   onClick: function () { toggleCtx(c.id); }
-                }, c.emoji + ' ' + c.name);
+                }, renderContextIcon(c, 14), h('span', null, ' ' + c.name));
               })
             )
           )
@@ -5135,7 +5292,7 @@
                     key: c.id, type: 'button',
                     className: 'chip' + (on ? ' sel' : ''),
                     onClick: function () { toggleCtx(c.id); }
-                  }, c.emoji + ' ' + c.name);
+                  }, renderContextIcon(c, 14), h('span', null, ' ' + c.name));
                 })
               )
             )

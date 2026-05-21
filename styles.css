@@ -145,6 +145,13 @@ button { cursor: pointer; border: none; background: none; }
   font-size: 26px;
   letter-spacing: -.01em;
   flex: 1;
+  /* Sprint 11: tema geçişinde başlık opak ve net kalır
+     (renk geçişi gövdeden değil, başlığın kendisinden) */
+  color: var(--ink);
+  opacity: 1;
+  -webkit-text-fill-color: var(--ink);
+  background: none;
+  transition: color .2s ease;
 }
 
 .topbar .sub {
@@ -218,15 +225,27 @@ button { cursor: pointer; border: none; background: none; }
 .deck {
   background: var(--paper-card);
   border-radius: var(--r-lg);
-  padding: 18px 18px 16px;
+  padding: 18px 18px 16px 22px;
   box-shadow: var(--shadow-card);
   position: relative;
   border: 1px solid rgba(255,255,255,.06);
-  /* sayfa kenarı hissi */
-  background-image: linear-gradient(90deg, var(--accent) 0 4px, transparent 4px);
   transition: transform .14s ease;
+  overflow: hidden;
 }
 .deck:active { transform: translateY(1px) scale(.995); }
+
+/* Sprint 11: deste kartının sol kenarındaki rastgele şerit yerine
+   kasıtlı, yuvarlatılmış accent rail (köşeden taşmaz, kartın içinde) */
+.deck::before {
+  content: '';
+  position: absolute;
+  left: 8px; top: 14px; bottom: 14px;
+  width: 4px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-deep));
+  opacity: .9;
+  pointer-events: none;
+}
 
 .deck h2 {
   font-family: var(--font-serif);
@@ -2758,4 +2777,191 @@ body.anim-off .tap-hint { animation: none; }
 /* Reduced-motion: chip ve hint statik kalsın */
 @media (prefers-reduced-motion: reduce) {
   .face .hint, .tap-hint { animation: none !important; }
+}
+
+/* === Sprint 11: Bug fix + polish === */
+
+/* 1) Alt nav, sticky olduğu için içeriğin sonunu örtüyordu. Her sekmenin
+   son öğesi nav'ın üstünde tam görünsün diye .content'e padding ekle.
+   ~44px nav + 6px margin-top + safe-area = güvenli sürtünmesiz alan. */
+.content {
+  padding-bottom: calc(var(--safe-b) + 76px);
+}
+/* Full-bleed sayfalarda (study/challenge) .app padding'i 0 — orada
+   .content'e ihtiyaç yok, içerideki ekran kendi düzenini yönetir. */
+.app[style*="padding: 0"] .content,
+.app[style*="padding:0"] .content {
+  padding-bottom: 0;
+}
+
+/* 2) Tema değiştirme butonu — güneş↔ay morph (CSS-only) */
+.theme-toggle { overflow: hidden; position: relative; }
+.theme-toggle .tt-stack {
+  position: relative;
+  width: 22px; height: 22px;
+  display: inline-block;
+}
+.theme-toggle .tt-icon {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity .32s ease,
+    transform .42s cubic-bezier(.34, 1.4, .64, 1);
+}
+.theme-toggle .tt-icon .icon { width: 22px; height: 22px; }
+/* is-light = şu an açık tema; tıklayınca koyuya geçecek → ay göster */
+.theme-toggle.is-light .tt-sun {
+  opacity: 0; transform: rotate(-90deg) scale(.4);
+}
+.theme-toggle.is-light .tt-moon {
+  opacity: 1; transform: rotate(0deg) scale(1);
+}
+.theme-toggle.is-dark .tt-sun {
+  opacity: 1; transform: rotate(0deg) scale(1);
+}
+.theme-toggle.is-dark .tt-moon {
+  opacity: 0; transform: rotate(90deg) scale(.4);
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle .tt-icon { transition: opacity .15s linear; }
+  .theme-toggle.is-light .tt-sun,
+  .theme-toggle.is-dark .tt-moon {
+    transform: none;
+  }
+}
+body.anim-off .theme-toggle .tt-icon { transition: opacity .15s linear; }
+body.anim-off .theme-toggle.is-light .tt-sun,
+body.anim-off .theme-toggle.is-dark .tt-moon { transform: none; }
+
+/* 3) Konum izni → banner pill'inin İÇİNDE inline link (ayrı pembe şerit yok) */
+.banner-hint {
+  align-items: flex-start;
+}
+.banner-hint-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+.banner-hint-pin {
+  display: inline-flex; align-items: center;
+  color: var(--ink-soft);
+}
+.banner-hint-pin .icon { width: 14px; height: 14px; }
+.banner-geo-inline {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.banner-geo-inline:active { transform: scale(.96); }
+
+/* 4) Hatırlatma "Saat" alanı — kart içi hizalama, ortalı, taşma yok */
+.reminder-section .field input[type="time"],
+.field input[type="time"] {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  margin: 6px auto 0;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: var(--paper-sunk);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  text-align: center;
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+}
+.field > label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* 5) Deste kartı sol rail — yukarıda .deck::before olarak tanımlandı.
+   Burada h2/meta'da soldan padding'i artık kart paddingü hallediyor,
+   kart içi metnin ek padding-left'ine gerek yok. */
+.deck h2, .deck .meta { padding-left: 0; }
+
+/* 6) Gelişmiş — Yedekleme katlanabilir panel */
+.advanced-panel { padding: 0; overflow: hidden; }
+.advanced-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: transparent;
+  border: none;
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.advanced-toggle:active { transform: scale(.99); }
+.advanced-caret {
+  display: inline-block;
+  transition: transform .2s ease;
+  color: var(--ink-faint);
+}
+.advanced-toggle.open .advanced-caret { transform: rotate(180deg); }
+.advanced-body {
+  padding: 4px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-top: 1px solid var(--line);
+}
+.sub-panel h4 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+.sub-panel p {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+
+/* 7) Streak banner (Bugün başla!) — koyu temada daha davetkar
+   Sprint 7 .streak-box.zero { opacity: .65 } cansız hissi veriyordu. */
+.streak-box.zero {
+  opacity: 1;
+  background: linear-gradient(135deg,
+    rgba(213, 75, 144, .14),
+    rgba(244, 197, 65, .08));
+  border-color: rgba(213, 75, 144, .28);
+}
+.streak-box.zero .streak-emoji { filter: none; opacity: .9; }
+.streak-box.zero .streak-zero-msg {
+  color: var(--ink);
+  font-weight: 600;
+}
+[data-theme="light"] .streak-box.zero {
+  background: linear-gradient(135deg,
+    rgba(193, 59, 126, .10),
+    rgba(230, 167, 0, .06));
+  border-color: rgba(193, 59, 126, .25);
 }

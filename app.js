@@ -2298,6 +2298,9 @@
 
   function DataView(props) {
     var fileRef = useRef(null);
+    // Sprint 11: Gelişmiş (yedekleme) bölümü varsayılan kapalı
+    var advH = useState(false);
+    var advOpen = advH[0], setAdvOpen = advH[1];
 
     function doExport() {
       try {
@@ -2354,20 +2357,7 @@
     var totalCards = props.state.decks.reduce(function (n, d) { return n + d.cards.length; }, 0);
 
     return h('div', null,
-      h('div', { className: 'panel' },
-        h('h3', null, 'Yedeği dışa aktar'),
-        h('p', null, 'Tüm desteler, kartlar, istatistikler ve bağlamlar tek bir JSON dosyasına indirilir. Bu dosyayı başka bir cihaza taşıyıp içe aktarabilirsiniz.'),
-        h('div', { className: 'mono', style: { fontSize: '12px', color: 'var(--ink-faint)', marginBottom: '12px' } },
-          props.state.decks.length + ' deste · ' + totalCards + ' kart · ' + props.ctxState.contexts.length + ' bağlam'),
-        h('button', { className: 'btn primary', onClick: doExport }, '⤓  JSON dışa aktar')
-      ),
-      h('div', { className: 'panel' },
-        h('h3', null, 'Yedeği içe aktar'),
-        h('p', null, 'Daha önce aldığınız bir JSON yedeğini yükleyin. Mevcut verinin yerine geçsin mi yoksa birleştirilsin mi seçeceksiniz.'),
-        h('input', { type: 'file', accept: 'application/json,.json', ref: fileRef, className: 'hidden-file', onChange: onFile }),
-        h('button', { className: 'btn ghost', onClick: function () { fileRef.current && fileRef.current.click(); } }, '⤒  JSON dosyası seç')
-      ),
-      // Bildirimler
+      // Bildirimler (yukarı taşındı: en sık kullanılanlar üstte)
       h('div', { className: 'panel' },
         h('h3', null, 'Bildirimler'),
         h('p', null,
@@ -2399,8 +2389,9 @@
         onSetReminderTime: props.onSetReminderTime,
         onOpenGoal: props.onOpenGoal
       }),
-      // Sprint 6: Gelişmiş (marketplace URL)
-      h(MarketplaceSettings, null),
+      // Sprint 11: MarketplaceSettings (GitHub URL) normal UI'dan gizlendi —
+      // varsayılan repo URL'i kod içinde sabit. Geliştirici gerektiğinde
+      // marketplaceBaseUrl() içinden değiştirebilir.
       // Sprint 9: Ses ve His ayarları
       h('div', { className: 'panel' },
         h('h3', null, 'Ses ve His'),
@@ -2443,6 +2434,39 @@
         h('p', null, '• Konum verilerin cihazından dışarı çıkmaz.'),
         h('p', null, '• Hiçbir veri sunucuya gönderilmez.'),
         h('p', null, '• Verilerini istediğin zaman dışa aktarabilir veya silebilirsin.')
+      ),
+      // Sprint 11: Gelişmiş — Yedekleme (katlanabilir, varsayılan kapalı)
+      h('div', { className: 'panel advanced-panel' },
+        h('button', {
+          className: 'advanced-toggle' + (advOpen ? ' open' : ''),
+          type: 'button',
+          'aria-expanded': advOpen ? 'true' : 'false',
+          onClick: function () { setAdvOpen(!advOpen); }
+        },
+          h('span', null, 'Gelişmiş — Yedekleme'),
+          h('span', { className: 'advanced-caret', 'aria-hidden': 'true' }, '▾')
+        ),
+        advOpen
+          ? h('div', { className: 'advanced-body' },
+              h('div', { className: 'sub-panel' },
+                h('h4', null, 'Yedeği dışa aktar'),
+                h('p', null, 'Tüm desteler, kartlar, istatistikler ve bağlamlar tek bir JSON dosyasına indirilir. Telefon/cihaz değişiminde bu dosyayı içe aktarabilirsin.'),
+                h('div', { className: 'mono', style: { fontSize: '12px', color: 'var(--ink-faint)', marginBottom: '12px' } },
+                  props.state.decks.length + ' deste · ' + totalCards + ' kart · ' + props.ctxState.contexts.length + ' bağlam'),
+                h('button', { className: 'btn primary btn-icon-label', onClick: doExport },
+                  IconEl('data', 16), h('span', null, 'JSON dışa aktar'))
+              ),
+              h('div', { className: 'sub-panel' },
+                h('h4', null, 'Yedeği içe aktar'),
+                h('p', null, 'Daha önce aldığın bir JSON yedeği yükle. Mevcut verinin yerine geçsin mi yoksa birleştirilsin mi seçeceksin.'),
+                h('input', { type: 'file', accept: 'application/json,.json', ref: fileRef, className: 'hidden-file', onChange: onFile }),
+                h('button', {
+                  className: 'btn ghost btn-icon-label',
+                  onClick: function () { fileRef.current && fileRef.current.click(); }
+                }, IconEl('data', 16), h('span', null, 'JSON dosyası seç'))
+              )
+            )
+          : null
       ),
       // Hakkında
       h('div', { className: 'panel' },
@@ -2496,16 +2520,24 @@
 
     // Durum 2: eşleşme yok
     if (!matches || matches.length === 0) {
+      // Sprint 11: konum izni link'i banner pill'inin içinde, ayrı pembe
+      // şerit olarak değil. Tüm hint tek bir kart hissi verir.
+      var showGeoAsk = needsLocation && geoStatus !== 'denied' && geoStatus !== 'unsupported';
       return h('div', { className: 'banner-hint-wrap' },
         h('div', { className: 'aurora-bg', 'aria-hidden': 'true' }),
         h('div', { className: 'banner-hint' },
-          h('span', null, '📍 Şu an aktif bağlam yok'),
+          h('div', { className: 'banner-hint-main' },
+            h('span', { className: 'banner-hint-pin' }, IconEl('pin', 14)),
+            h('span', null, ' Şu an aktif bağlam yok'),
+            showGeoAsk
+              ? h('button', {
+                  className: 'banner-geo-inline',
+                  onClick: props.onAskLocation
+                }, 'Konum izni ver')
+              : null
+          ),
           refreshBtn
         ),
-        needsLocation && geoStatus !== 'denied'
-          ? h('button', { className: 'linkbtn banner-geo-link', onClick: props.onAskLocation },
-              '📍 Konum eşleşmesi için izin ver')
-          : null,
         geoStatus === 'denied'
           ? h('div', { className: 'banner-geo-note' },
               'Konum erişimi yok — sadece zaman bağlamları aktif')
@@ -3469,6 +3501,8 @@
     }, [theme]);
 
     function toggleTheme() {
+      // Sprint 11: tıklama sesi (mevcut Web Audio motoru)
+      playSound('flip');
       setTheme(function (t) { return t === 'light' ? 'dark' : 'light'; });
     }
 
@@ -4913,12 +4947,18 @@
           ? h('button', { className: 'back', onClick: function () { setRoute({ name: backTarget }); } }, backLabel)
           : null,
         h('h1', null, title),
+        // Sprint 11: güneş↔ay morph animasyonu (CSS-only)
         h('button', {
-          className: 'iconbtn',
+          className: 'iconbtn theme-toggle ' + (theme === 'light' ? 'is-light' : 'is-dark'),
           onClick: toggleTheme,
           'aria-label': theme === 'light' ? 'Koyu temaya geç' : 'Açık temaya geç',
           title: theme === 'light' ? 'Koyu tema' : 'Açık tema'
-        }, IconEl(theme === 'light' ? 'moon' : 'sun', 22)),
+        },
+          h('span', { className: 'tt-stack', 'aria-hidden': 'true' },
+            h('span', { className: 'tt-icon tt-sun' }, IconEl('sun', 22)),
+            h('span', { className: 'tt-icon tt-moon' }, IconEl('moon', 22))
+          )
+        ),
         route.name === 'list'
           ? h('button', { className: 'iconbtn accent', onClick: function () { setModal({ type: 'newDeck' }); }, 'aria-label': 'Yeni deste' }, IconEl('plus', 22))
           : null,

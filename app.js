@@ -1073,7 +1073,7 @@
     star:        '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
     clock:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>',
     sparkles:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4L12 3z"/><path d="M5 18l.6 1.4L7 20l-1.4.6L5 22l-.6-1.4L3 20l1.4-.6L5 18z"/><path d="M19 14l.5 1.2L21 16l-1.5.8L19 18l-.5-1.2L17 16l1.5-.8L19 14z"/></svg>',
-    fire:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 4 4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 2-4-1 4 2 4 2 0 0-1 0-3 0-4z"/><path d="M8 14a4 4 0 0 0 8 0c0-1-.5-2-1-3"/></svg>',
+    fire:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5c0 3 2 4 3.5 6 1.4 1.8 2.5 3.5 2.5 5.5a6 6 0 0 1-12 0c0-2 1-3.5 2-4.5 0 1.6 1 2.5 2 2.5 0-2.5-1-3.5-1-5.5 0-1.6 1.5-3 3-4z"/><path d="M12 21a3 3 0 0 0 3-3c0-1.2-.6-2-1.3-2.7-.3.7-.7 1.2-1.7 1.2-1.5 0-2-1.3-2-2.5-.5.5-1 1.5-1 2.7A2 2 0 0 0 12 21z" fill="currentColor" fill-opacity=".18"/></svg>',
     target:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>',
     note:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>',
 
@@ -2582,7 +2582,7 @@
       className: 'iconbtn banner-refresh' + (geoBusy ? ' spinning' : ''),
       onClick: props.onRefresh, 'aria-label': 'Yenile',
       title: 'Yenile', disabled: geoBusy
-    }, h('span', { className: geoBusy ? 'spin' : '' }, '🔄'));
+    }, h('span', { className: geoBusy ? 'spin' : '' }, IconEl('refresh', 18)));
 
     // Durum 2: eşleşme yok
     if (!matches || matches.length === 0) {
@@ -2657,7 +2657,7 @@
     if (status === 'loading') {
       return h('div', { className: 'empty' },
         h('div', { className: 'big' }, 'Desteler yükleniyor…'),
-        h('div', { className: 'spin', style: { fontSize: '24px', marginTop: '12px' } }, '🔄')
+        h('div', { className: 'spin', style: { marginTop: '12px', display: 'inline-flex', color: 'var(--accent)' } }, IconEl('refresh', 24))
       );
     }
     if (status === 'error' || !manifest) {

@@ -509,6 +509,125 @@
     return 'draw';
   }
 
+  /* ===== Sprint 9: Ses + Haptik + Animasyon ayarları ===== */
+
+  var SOUND_KEY = 'flashcards.soundEnabled';
+  var HAPTIC_KEY = 'flashcards.hapticEnabled';
+  var ANIM_KEY = 'flashcards.animEnabled';
+
+  function readBoolPref(k, dflt) {
+    try {
+      var v = localStorage.getItem(k);
+      if (v === null) return dflt;
+      return v !== '0';
+    } catch (e) { return dflt; }
+  }
+  function writeBoolPref(k, v) {
+    try { localStorage.setItem(k, v ? '1' : '0'); } catch (e) {}
+  }
+  function isSoundOn() { return readBoolPref(SOUND_KEY, true); }
+  function isHapticOn() { return readBoolPref(HAPTIC_KEY, true); }
+  function isAnimOn() { return readBoolPref(ANIM_KEY, true); }
+
+  function reducedMotionPref() {
+    try {
+      return window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch (e) { return false; }
+  }
+  function animationsAllowed() {
+    return isAnimOn() && !reducedMotionPref();
+  }
+  function hapticSupported() {
+    return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
+  }
+
+  /* ===== Sprint 9: Web Audio motoru (programatik ton) ===== */
+
+  var _audioCtx = null;
+  function getAudioCtx() {
+    if (_audioCtx) return _audioCtx;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { _audioCtx = new AC(); } catch (e) { _audioCtx = null; }
+    return _audioCtx;
+  }
+  // Tarayıcı autoplay politikası: ilk dokunuşa kadar suspend kalır
+  function unlockAudioOnFirstGesture() {
+    function unlock() {
+      var ctx = getAudioCtx();
+      if (ctx && ctx.state === 'suspended') {
+        try { ctx.resume(); } catch (e) {}
+      }
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    }
+    window.addEventListener('pointerdown', unlock, { passive: true });
+    window.addEventListener('keydown', unlock);
+    window.addEventListener('touchstart', unlock, { passive: true });
+  }
+  function tone(freq, dur, type, vol, startAt) {
+    var ctx = getAudioCtx();
+    if (!ctx) return;
+    try {
+      var t0 = ctx.currentTime + (startAt || 0);
+      var osc = ctx.createOscillator();
+      var g = ctx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.12, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t0); osc.stop(t0 + dur);
+    } catch (e) {}
+  }
+
+  // Ses olayı dispatcher (Sprint 9 ses paleti)
+  function playSound(kind) {
+    if (!isSoundOn()) return;
+    switch (kind) {
+      case 'correct':
+        tone(523, 0.09, 'sine', 0.12);
+        tone(784, 0.12, 'sine', 0.12, 0.08);
+        return;
+      case 'wrong':
+        tone(280, 0.18, 'triangle', 0.10);
+        tone(200, 0.20, 'triangle', 0.10, 0.10);
+        return;
+      case 'flip':
+        tone(1200, 0.025, 'square', 0.04);
+        return;
+      case 'streak':
+        tone(523, 0.10, 'sine', 0.12);
+        tone(659, 0.10, 'sine', 0.12, 0.08);
+        tone(784, 0.12, 'sine', 0.12, 0.16);
+        return;
+      case 'win':
+        tone(523, 0.10, 'sine', 0.12);
+        tone(659, 0.10, 'sine', 0.12, 0.08);
+        tone(784, 0.10, 'sine', 0.12, 0.16);
+        tone(1046, 0.16, 'sine', 0.14, 0.24);
+        return;
+      case 'loss':
+        tone(392, 0.18, 'sine', 0.10);
+        tone(330, 0.22, 'sine', 0.10, 0.12);
+        return;
+      case 'draw':
+        tone(659, 0.10, 'sine', 0.10);
+        tone(659, 0.10, 'sine', 0.10, 0.14);
+        return;
+    }
+  }
+
+  /* ===== Sprint 9: Haptik (titreşim) ===== */
+
+  function haptic(pattern) {
+    if (!isHapticOn()) return;
+    if (!hapticSupported()) return;
+    try { navigator.vibrate(pattern); } catch (e) {}
+  }
+
   /* ===== Sprint 3: Tetikleme yardımcıları (saf, modül seviyesi) ===== */
 
   // İki koordinat arası mesafe (metre) — Haversine
@@ -875,6 +994,57 @@
     return h('div', { className: 'toast' }, props.text);
   }
 
+  /* ===== Sprint 9: İkon kayıt defteri (inline SVG, offline) ===== */
+  // currentColor → tema değişikliklerinde otomatik renk geçişi
+  var ICONS = {
+    decks:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
+    discover:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4L12 3z"/><path d="M5 18l.6 1.4L7 20l-1.4.6L5 22l-.6-1.4L3 20l1.4-.6L5 18z"/><path d="M19 14l.5 1.2L21 16l-1.5.8L19 18l-.5-1.2L17 16l1.5-.8L19 14z"/></svg>',
+    contexts:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    stats:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="10"/><line x1="10" y1="20" x2="10" y2="4"/><line x1="16" y1="20" x2="16" y2="13"/><line x1="22" y1="20" x2="2" y2="20"/></svg>',
+    data:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 10 12 5 17 10"/><line x1="12" y1="5" x2="12" y2="14"/><polyline points="7 17 12 22 17 17"/><line x1="12" y1="22" x2="12" y2="13"/></svg>',
+    plus:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    sun:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.8" y1="4.8" x2="6.9" y2="6.9"/><line x1="17.1" y1="17.1" x2="19.2" y2="19.2"/><line x1="4.8" y1="19.2" x2="6.9" y2="17.1"/><line x1="17.1" y1="6.9" x2="19.2" y2="4.8"/></svg>',
+    moon:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+    check:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 10 18 20 6"/></svg>',
+    cross:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>',
+    tilde:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/></svg>',
+    trophy:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v6a5 5 0 0 1-10 0V4z"/><path d="M17 4h3v3a3 3 0 0 1-3 3"/><path d="M7 4H4v3a3 3 0 0 0 3 3"/></svg>',
+    flex:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13c2 0 3-1 3-3V5a2 2 0 0 1 4 0c0 4 1 6 5 6s4 4 0 5c-3 1-6 2-9 2s-6-1-7-3 1-2 4-2z"/></svg>',
+    handshake: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l2 2a2 2 0 0 0 3 0l4-4a2 2 0 0 0 0-3l-3-3"/><path d="M13 7l-2-2a2 2 0 0 0-3 0L4 9a2 2 0 0 0 0 3l3 3"/><path d="M9 13l3-3 3 3 3-3"/></svg>'
+  };
+
+  function IconEl(name, size) {
+    var svg = ICONS[name] || '';
+    var sz = (size || 22);
+    return h('span', {
+      className: 'icon icon-' + name,
+      style: { width: sz + 'px', height: sz + 'px' },
+      'aria-hidden': 'true',
+      dangerouslySetInnerHTML: { __html: svg }
+    });
+  }
+
+  /* ===== Sprint 9: Konfeti (kutlama overlay) ===== */
+  function Confetti(props) {
+    useEffect(function () {
+      var t = setTimeout(props.onDone || function () {}, 1500);
+      return function () { clearTimeout(t); };
+    }, []);
+    if (!animationsAllowed()) return null;
+    var pieces = [];
+    for (var i = 0; i < 18; i++) {
+      pieces.push(h('span', {
+        key: i,
+        className: 'cnf-piece cnf-c' + (i % 4),
+        style: {
+          left: Math.round(Math.random() * 100) + '%',
+          animationDelay: Math.round(Math.random() * 600) + 'ms'
+        }
+      }));
+    }
+    return h('div', { className: 'confetti', 'aria-hidden': 'true' }, pieces);
+  }
+
   /* ===== Sprint 4: Onboarding (3 ekran, route'tan bağımsız overlay) ===== */
 
   function OnboardingOverlay(props) {
@@ -1115,6 +1285,11 @@
     // advance+entering tetikle → eski/yeni bindirme (crossfade, boş an yok)
     var LEAVE_MS = 480, ENTER_MS = 620, SWAP_MS = 300;
 
+    // Sprint 9: cevap geri bildirimi (ses+haptik+flash sınıfı)
+    var fbSt = useState(null);  // null | 'good' | 'bad'
+    var feedback = fbSt[0], setFeedback = fbSt[1];
+    var fbTimer = useRef(null);
+
     function advance(rating) {
       // rating: 'good' | 'maybe' | 'bad'
       setS(function (p) {
@@ -1155,6 +1330,18 @@
     // advance'i saran geçiş: eski kart kayıp çıkar → advance → yeni kart gelir
     function requestAdvance(rating) {
       if (anim !== 'idle') return; // çift-tık / geçiş ortası kilidi
+
+      // Sprint 9: ses + haptik + görsel geri bildirim (maybe sessiz)
+      if (rating === 'good') {
+        playSound('correct'); haptic(15);
+        if (animationsAllowed()) setFeedback('good');
+      } else if (rating === 'bad') {
+        playSound('wrong'); haptic([10, 50, 10]);
+        if (animationsAllowed()) setFeedback('bad');
+      }
+      if (fbTimer.current) clearTimeout(fbTimer.current);
+      fbTimer.current = setTimeout(function () { setFeedback(null); }, 420);
+
       setAnim('leaving');
       // SWAP_MS'te (çıkış bitmeden) advance + entering → eski/yeni
       // bindirir (crossfade), boş kare olmaz. idle, girişin tam
@@ -1172,6 +1359,7 @@
     useEffect(function () {
       return function () {
         if (animTimer.current) clearTimeout(animTimer.current);
+        if (fbTimer.current) clearTimeout(fbTimer.current);
       };
     }, []);
 
@@ -1243,7 +1431,8 @@
       }));
     }
     var wrapCls = 'card-anim-wrap' +
-      (anim === 'leaving' ? ' leaving' : anim === 'entering' ? ' entering' : '');
+      (anim === 'leaving' ? ' leaving' : anim === 'entering' ? ' entering' : '') +
+      (feedback === 'good' ? ' fb-good' : feedback === 'bad' ? ' fb-bad' : '');
 
     return h('div', { className: 'study' },
       h('div', { className: 'study-top' },
@@ -1289,11 +1478,11 @@
       s.flipped
         ? h('div', { className: 'rate-row' + (anim !== 'idle' ? ' hidden' : '') },
             h('button', { className: 'rate bad', onClick: function (e) { e.stopPropagation(); requestAdvance('bad'); } },
-              h('span', { className: 'ic' }, '✕'), h('span', null, 'Bilmiyorum')),
+              h('span', { className: 'ic' }, IconEl('cross', 20)), h('span', null, 'Bilmiyorum')),
             h('button', { className: 'rate maybe', onClick: function (e) { e.stopPropagation(); requestAdvance('maybe'); } },
-              h('span', { className: 'ic' }, '~'), h('span', null, 'Kararsız')),
+              h('span', { className: 'ic' }, IconEl('tilde', 20)), h('span', null, 'Kararsız')),
             h('button', { className: 'rate good', onClick: function (e) { e.stopPropagation(); requestAdvance('good'); } },
-              h('span', { className: 'ic' }, '✓'), h('span', null, 'Biliyorum'))
+              h('span', { className: 'ic' }, IconEl('check', 20)), h('span', null, 'Biliyorum'))
           )
         : h('div', { className: 'tap-hint' }, 'Karta dokun, sonra kendini değerlendir')
     );
@@ -1378,7 +1567,26 @@
       return function () { clearInterval(t); };
     }, [s.done]);
 
+    // Sprint 9: cevap geri bildirimi
+    var fbSt = useState(null); // null | 'good' | 'bad'
+    var feedback = fbSt[0], setFeedback = fbSt[1];
+    var fbTimer = useRef(null);
+    useEffect(function () {
+      return function () { if (fbTimer.current) clearTimeout(fbTimer.current); };
+    }, []);
+
     function answer(isCorrect) {
+      // Sprint 9: ses + haptik + flash sınıfı
+      if (isCorrect) {
+        playSound('correct'); haptic(15);
+        if (animationsAllowed()) setFeedback('good');
+      } else {
+        playSound('wrong'); haptic([10, 50, 10]);
+        if (animationsAllowed()) setFeedback('bad');
+      }
+      if (fbTimer.current) clearTimeout(fbTimer.current);
+      fbTimer.current = setTimeout(function () { setFeedback(null); }, 420);
+
       setS(function (p) {
         var nextIdx = p.idx + 1;
         var nextCorrect = p.correct + (isCorrect ? 1 : 0);
@@ -1431,7 +1639,11 @@
         h('div', { className: 'progress-count' }, (s.idx + 1) + ' / ' + cards.length)
       ),
       h('div', { className: 'challenge-banner-mini' }, '⚔️ Düello modu'),
-      h('div', { className: 'flip-area', onClick: flip },
+      h('div', {
+        className: 'flip-area' +
+          (feedback === 'good' ? ' fb-good' : feedback === 'bad' ? ' fb-bad' : ''),
+        onClick: flip
+      },
         h('div', { className: 'flashcard' + (s.flipped ? ' flipped' : ''), role: 'button' },
           h('div', { className: 'face front' },
             h('div', { className: 'tag' }, 'SORU'),
@@ -1449,11 +1661,11 @@
             h('button', {
               className: 'rate bad',
               onClick: function (e) { e.stopPropagation(); answer(false); }
-            }, h('span', { className: 'ic' }, '✕'), h('span', null, 'Bilemedim')),
+            }, h('span', { className: 'ic' }, IconEl('cross', 20)), h('span', null, 'Bilemedim')),
             h('button', {
               className: 'rate good',
               onClick: function (e) { e.stopPropagation(); answer(true); }
-            }, h('span', { className: 'ic' }, '✓'), h('span', null, 'Bildim'))
+            }, h('span', { className: 'ic' }, IconEl('check', 20)), h('span', null, 'Bildim'))
           )
         : h('div', { className: 'tap-hint' }, 'Karta dokun, sonra cevapla')
     );
@@ -1551,6 +1763,21 @@
     var shareOpen = shareOpenH[0], setShareOpen = shareOpenH[1];
     var copiedToastRef = useRef(null);
 
+    // Sprint 9: mount'ta sonuca özel ses + haptik
+    useEffect(function () {
+      if (mode === 'friend' && theirs) {
+        var oc = duelOutcome(
+          { score: mine.score, time: mine.time },
+          { score: theirs.score, time: theirs.time }
+        );
+        if (oc === 'win') { playSound('win'); haptic([15, 30, 15, 30, 30]); }
+        else if (oc === 'loss') { playSound('loss'); haptic([10, 80, 10]); }
+        else { playSound('draw'); }
+      } else if (mode === 'challenger') {
+        playSound('streak');
+      }
+    }, []);
+
     function mmss(sec) {
       sec = Number(sec) || 0;
       var m = Math.floor(sec / 60), r = sec % 60;
@@ -1592,11 +1819,13 @@
     );
     var titleTxt = outcome === 'win' ? 'KAZANDIN!' :
                    outcome === 'loss' ? 'Bu sefer kaybettin' : 'BERABERE';
-    var icon = outcome === 'win' ? '🏆' : outcome === 'loss' ? '💪' : '🤝';
+    var iconName = outcome === 'win' ? 'trophy' : outcome === 'loss' ? 'flex' : 'handshake';
     var cls = 'challenge-result cr-' + outcome;
 
     return h('div', { className: cls },
-      h('div', { className: 'cr-icon big' }, icon),
+      // Sprint 9: zafer ekranında konfeti
+      outcome === 'win' ? h(Confetti, { onDone: function () {} }) : null,
+      h('div', { className: 'cr-icon big' }, IconEl(iconName, 64)),
       h('h2', { className: 'cr-title' }, titleTxt),
       h('div', { className: 'cr-vs' },
         h('div', { className: 'cr-vs-row mine' },
@@ -2041,6 +2270,42 @@
       }),
       // Sprint 6: Gelişmiş (marketplace URL)
       h(MarketplaceSettings, null),
+      // Sprint 9: Ses ve His ayarları
+      h('div', { className: 'panel' },
+        h('h3', null, 'Ses ve His'),
+        h('label', { className: 'cm-ctx-row', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
+          h('span', null, 'Ses efektleri'),
+          h('button', {
+            className: 'toggle-sw' + (props.soundOn ? ' on' : ''),
+            role: 'switch', 'aria-checked': props.soundOn ? 'true' : 'false',
+            'aria-label': 'Ses efektleri',
+            onClick: props.onToggleSound
+          }, h('span', { className: 'toggle-knob' }))
+        ),
+        props.hapticSupported
+          ? h('label', { className: 'cm-ctx-row', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px' } },
+              h('span', null, 'Titreşim'),
+              h('button', {
+                className: 'toggle-sw' + (props.hapticOn ? ' on' : ''),
+                role: 'switch', 'aria-checked': props.hapticOn ? 'true' : 'false',
+                'aria-label': 'Titreşim',
+                onClick: props.onToggleHaptic
+              }, h('span', { className: 'toggle-knob' }))
+            )
+          : h('div', { className: 'hint-line', style: { marginTop: '10px' } },
+              'Titreşim bu cihazda desteklenmiyor.'),
+        h('label', { className: 'cm-ctx-row', style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px' } },
+          h('span', null, 'Animasyonlar'),
+          h('button', {
+            className: 'toggle-sw' + (props.animOn ? ' on' : ''),
+            role: 'switch', 'aria-checked': props.animOn ? 'true' : 'false',
+            'aria-label': 'Animasyonlar',
+            onClick: props.onToggleAnim
+          }, h('span', { className: 'toggle-knob' }))
+        ),
+        h('div', { className: 'hint-line', style: { marginTop: '10px' } },
+          'Cihazın “hareketi azalt” ayarı açıksa animasyonlar otomatik kısıtlanır.')
+      ),
       // Gizlilik
       h('div', { className: 'panel' },
         h('h3', null, 'Gizlilik'),
@@ -2761,10 +3026,15 @@
 
   function StreakCelebrate(props) {
     useEffect(function () {
+      // Sprint 9: tatlı "ta-da" + titreşim
+      playSound('streak');
+      haptic([15, 30, 15, 30, 30]);
       var t = setTimeout(props.onDone, 1800);
       return function () { clearTimeout(t); };
     }, []);
     return h('div', { className: 'streak-celebrate', role: 'status' },
+      // Sprint 9: konfeti (animasyon kapalıysa otomatik gizlenir)
+      h(Confetti, { onDone: function () {} }),
       h('div', { className: 'sc-emoji' }, '🔥'),
       h('div', { className: 'sc-text' },
         props.streak + ' günlük seri! Harikasın!')
@@ -2829,6 +3099,14 @@
     });
     var catchupOn = catchupHook[0], setCatchupOn = catchupHook[1];
 
+    // Sprint 9: Ses / Haptik / Animasyon tercihleri (varsayılan AÇIK)
+    var soundHook = useState(isSoundOn);
+    var soundOn = soundHook[0], setSoundOn = soundHook[1];
+    var hapticHook = useState(isHapticOn);
+    var hapticOn = hapticHook[0], setHapticOn = hapticHook[1];
+    var animHook = useState(isAnimOn);
+    var animOn = animHook[0], setAnimOn = animHook[1];
+
     // catch-up: bu oturumda gizlenenler (sayfa yenilenince sıfır)
     var dismissedCatchupRef = useRef({});
     // bildirim zamanlama timer'ı
@@ -2876,6 +3154,8 @@
     useEffect(function () { persistContexts(ctxState); }, [ctxState]);
     // Sprint 8: düello sonuçları
     useEffect(function () { persistDuels(duels); }, [duels]);
+    // Sprint 9: AudioContext'i ilk kullanıcı dokunuşuna kadar kilitle (autoplay)
+    useEffect(function () { unlockAudioOnFirstGesture(); }, []);
 
     // Boot'ta bir kere: kırık (orphan) kart-bağlam linklerini sessizce temizle
     useEffect(function () { cleanupOrphanLinks(); }, []);
@@ -4344,6 +4624,24 @@
         onImport: function (norm, ctxNorm) {
           setPendingImport({ deckNorm: norm, ctxNorm: ctxNorm || null });
           setModal({ type: 'import' });
+        },
+        // Sprint 9: Ses ve His ayarları
+        soundOn: soundOn,
+        hapticOn: hapticOn,
+        animOn: animOn,
+        hapticSupported: hapticSupported(),
+        onToggleSound: function () {
+          var nv = !soundOn;
+          setSoundOn(nv); writeBoolPref(SOUND_KEY, nv);
+        },
+        onToggleHaptic: function () {
+          var nv = !hapticOn;
+          setHapticOn(nv); writeBoolPref(HAPTIC_KEY, nv);
+          if (nv) haptic(15); // mini ön izleme
+        },
+        onToggleAnim: function () {
+          var nv = !animOn;
+          setAnimOn(nv); writeBoolPref(ANIM_KEY, nv);
         }
       });
     } else if (route.name === 'discover') {
@@ -4463,21 +4761,21 @@
           onClick: toggleTheme,
           'aria-label': theme === 'light' ? 'Koyu temaya geç' : 'Açık temaya geç',
           title: theme === 'light' ? 'Koyu tema' : 'Açık tema'
-        }, theme === 'light' ? '☾' : '☀'),
+        }, IconEl(theme === 'light' ? 'moon' : 'sun', 22)),
         route.name === 'list'
-          ? h('button', { className: 'iconbtn accent', onClick: function () { setModal({ type: 'newDeck' }); }, 'aria-label': 'Yeni deste' }, '＋')
+          ? h('button', { className: 'iconbtn accent', onClick: function () { setModal({ type: 'newDeck' }); }, 'aria-label': 'Yeni deste' }, IconEl('plus', 22))
           : null,
         route.name === 'contexts'
-          ? h('button', { className: 'iconbtn accent', onClick: function () { setRoute({ name: 'contextEdit' }); }, 'aria-label': 'Yeni bağlam' }, '＋')
+          ? h('button', { className: 'iconbtn accent', onClick: function () { setRoute({ name: 'contextEdit' }); }, 'aria-label': 'Yeni bağlam' }, IconEl('plus', 22))
           : null
       ),
       h('div', { className: 'content' }, body),
       h('div', { className: 'tabs' },
-        Tab('list', '▤', 'Desteler'),
-        Tab('discover', '🌟', 'Keşfet'),
-        Tab('contexts', '📍', 'Bağlamlar'),
-        Tab('stats', '◷', 'İstatistik'),
-        Tab('data', '⇅', 'Veri')
+        Tab('list', IconEl('decks', 22), 'Desteler'),
+        Tab('discover', IconEl('discover', 22), 'Keşfet'),
+        Tab('contexts', IconEl('contexts', 22), 'Bağlamlar'),
+        Tab('stats', IconEl('stats', 22), 'İstatistik'),
+        Tab('data', IconEl('data', 22), 'Veri')
       ),
       renderModal(),
       swUpdate

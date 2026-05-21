@@ -29,9 +29,10 @@
   --accent:       #D54B90;   /* magenta-pembe */
   --accent-deep:  #823C82;   /* mor (basılı/hover) */
   --accent-soft:  #3D2552;   /* koyu mor şerit */
-  --good:         #3FA66A;
+  --good:         #3FB877;   /* Sprint 9: biraz daha canlı yeşil */
   --maybe:        #D99A3A;
-  --bad:          #C87059;
+  --bad:          #E07A66;   /* Sprint 9: yumuşak mercan (sert kırmızı değil) */
+  --gold:         #F4C541;   /* Sprint 9: kutlama tonu */
 
   --shadow-1: 0 0 0 1px rgba(255,255,255,.04), 0 2px 6px rgba(0,0,0,.45);
   --shadow-2: 0 0 0 1px rgba(255,255,255,.05), 0 10px 30px rgba(0,0,0,.55);
@@ -58,9 +59,10 @@
   --accent:       #C13B7E;   /* magenta (açık zeminde okunur ton) */
   --accent-deep:  #9C2F66;   /* koyu magenta (basılı/hover) */
   --accent-soft:  #F0D6E6;   /* açık pembe şerit */
-  --good:         #2E8B57;
+  --good:         #2BA164;   /* Sprint 9: biraz daha canlı yeşil */
   --maybe:        #B97E1E;
-  --bad:          #BA5A45;
+  --bad:          #D66E53;   /* Sprint 9: mercan tonu */
+  --gold:         #E6A700;   /* Sprint 9: kutlama tonu */
 
   --shadow-1: 0 1px 2px rgba(70,40,90,.08), 0 2px 6px rgba(70,40,90,.06);
   --shadow-2: 0 4px 10px rgba(70,40,90,.10), 0 10px 30px rgba(70,40,90,.12);
@@ -2398,3 +2400,141 @@ button { cursor: pointer; border: none; background: none; }
   .cr-vs-time { grid-column: 2; justify-self: end; }
 }
 
+/* === Sprint 9: Canlandırma (ses+animasyon+ikon) === */
+
+/* İkon: inline SVG sarmalayıcı — currentColor ile temayla uyumlu */
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 0;
+  color: currentColor;
+}
+.icon > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  stroke: currentColor;
+}
+
+/* Tab bar ikonları için boyut + hizalama */
+.tabs .ic .icon { width: 22px; height: 22px; }
+.tabs .ic { display: inline-flex; align-items: center; justify-content: center; }
+.iconbtn .icon { width: 22px; height: 22px; }
+
+/* Rating butonlarındaki SVG ikon */
+.rate .ic .icon { width: 20px; height: 20px; }
+
+/* Challenge sonuç ikonu (büyük) */
+.cr-icon.big .icon { width: 64px; height: 64px; }
+.cr-icon .icon { width: 48px; height: 48px; }
+.challenge-result.cr-win  .cr-icon.big .icon { color: var(--gold); }
+.challenge-result.cr-loss .cr-icon.big .icon { color: var(--accent); }
+.challenge-result.cr-draw .cr-icon.big .icon { color: var(--ink-soft); }
+
+/* Mevcut cr-icon font-size kuralları emoji içindi; SVG'de zarar vermez */
+
+/* Tek karta cevap geri bildirimi: pop + soft glow (good) / shake + glow (bad) */
+.card-anim-wrap.fb-good {
+  animation: correctPop .42s cubic-bezier(.34,1.56,.64,1);
+}
+.card-anim-wrap.fb-bad {
+  animation: wrongShake .42s ease-in-out;
+}
+.card-anim-wrap.fb-good .flashcard,
+.flip-area.fb-good .flashcard {
+  box-shadow: 0 0 0 3px rgba(63,184,119,.55), 0 14px 40px rgba(63,184,119,.18);
+}
+.card-anim-wrap.fb-bad .flashcard,
+.flip-area.fb-bad .flashcard {
+  box-shadow: 0 0 0 3px rgba(224,122,102,.55), 0 14px 40px rgba(224,122,102,.18);
+}
+.flip-area.fb-good { animation: correctPop .42s cubic-bezier(.34,1.56,.64,1); }
+.flip-area.fb-bad  { animation: wrongShake .42s ease-in-out; }
+
+@keyframes correctPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@keyframes wrongShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+/* Mevcut card-anim-wrap.entering animasyonuna hafif yumuşatma:
+   kart "yukarıdan kayıp gelir" hissi (mevcut crossfade ile uyumlu) */
+@keyframes cardRiseIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Buton tıklamada dokunsal his (kısa, reduced-motion'da kapanır) */
+.btn:active,
+.iconbtn:active,
+.rate:active,
+.tabs button:active,
+.goal-chip:active,
+.linkbtn:active {
+  transform: scale(0.96);
+  transition: transform .08s ease-out;
+}
+
+/* Konfeti — 18 parça, rastgele yatay, kısa düşüş */
+.confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 4000;
+}
+.cnf-piece {
+  position: absolute;
+  top: -10px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confettiFall 1.4s ease-out forwards;
+  transform-origin: center;
+}
+.cnf-c0 { background: var(--accent); }
+.cnf-c1 { background: var(--good); }
+.cnf-c2 { background: var(--gold); }
+.cnf-c3 { background: var(--accent-deep); }
+
+@keyframes confettiFall {
+  0%   { opacity: 0; transform: translateY(0) rotate(0deg); }
+  15%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(60vh) rotate(540deg); }
+}
+
+/* Streak kutlamasında kutlama tonu hissi */
+.streak-celebrate {
+  background: linear-gradient(135deg, var(--gold), var(--accent)) !important;
+}
+
+/* Erişilebilirlik genişletmesi: Sprint 9 animasyonlarını kapat */
+@media (prefers-reduced-motion: reduce) {
+  .card-anim-wrap.fb-good,
+  .card-anim-wrap.fb-bad,
+  .flip-area.fb-good,
+  .flip-area.fb-bad,
+  .confetti,
+  .cnf-piece {
+    animation: none !important;
+  }
+  .btn:active,
+  .iconbtn:active,
+  .rate:active,
+  .tabs button:active,
+  .goal-chip:active,
+  .linkbtn:active {
+    transform: none !important;
+    transition: none !important;
+  }
+}
